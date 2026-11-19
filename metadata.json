@@ -1,0 +1,6 @@
+{
+  "name": "Sistor — Penjualan Kaos & Stock Opname",
+  "description": "Aplikasi kasir penjualan kaos (Cash, QRIS, Transfer Bank), tabel stock opname lengkap dengan HPP, harga jual, nilai penjualan, kerugian selisih barang, keterangan manual, dan sinkronisasi Google Sheets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

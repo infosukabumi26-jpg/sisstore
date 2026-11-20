@@ -140,10 +140,22 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [items, setItems] = useState<TShirtItem[]>(() =>
-    readStored(STORAGE_KEYS.items, INITIAL_ITEMS)
+    readStored(STORAGE_KEYS.items, INITIAL_ITEMS).map((item) =>
+      item.nama.startsWith('Sistor ')
+        ? { ...item, nama: item.nama.replace(/^Sistor /, 'Sisstore ') }
+        : item
+    )
   );
   const [transactions, setTransactions] = useState<SaleTransaction[]>(() =>
-    readStored(STORAGE_KEYS.transactions, INITIAL_TRANSACTIONS)
+    readStored(STORAGE_KEYS.transactions, INITIAL_TRANSACTIONS).map((tx) => ({
+      ...tx,
+      kasir: tx.kasir === 'Pemilik Sistor' ? 'Pemilik Sisstore' : tx.kasir,
+      items: tx.items.map((line) =>
+        line.nama.startsWith('Sistor ')
+          ? { ...line, nama: line.nama.replace(/^Sistor /, 'Sisstore ') }
+          : line
+      ),
+    }))
   );
   const [reports, setReports] = useState<OpnameReport[]>(() =>
     readStored(STORAGE_KEYS.reports, INITIAL_REPORTS)

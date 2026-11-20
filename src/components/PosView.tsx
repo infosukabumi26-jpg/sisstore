@@ -1814,32 +1814,21 @@ export const PosView: React.FC<PosViewProps> = ({
               </div>
 
               <div className="divide-y divide-dashed divide-[#D6D6D0] border-y border-dashed border-[#D6D6D0] py-1.5">
-                {receiptTx.items.map((line, idx) => {
-                  const isNego =
-                    line.hargaKatalog !== undefined &&
-                    line.hargaKatalog !== line.hargaJual;
-                  return (
-                    <div key={idx} className="flex justify-between gap-2 py-1.5">
-                      <div>
-                        <div className="font-semibold text-[#141413]">
-                          {line.nama} ({line.ukuran})
-                        </div>
-                        <div className="font-mono text-[11px] text-[#6B6B65]">
-                          {line.qty} x {formatRupiah(line.hargaJual)}
-                          {isNego ? ' (Harga Jadi)' : ''}
-                        </div>
-                        {isNego && line.hargaKatalog !== undefined && (
-                          <div className="font-mono text-[10px] text-[#787872]">
-                            Normal: {formatRupiah(line.hargaKatalog)}
-                          </div>
-                        )}
+                {receiptTx.items.map((line, idx) => (
+                  <div key={idx} className="flex justify-between gap-2 py-1.5">
+                    <div>
+                      <div className="font-semibold text-[#141413]">
+                        {line.nama} ({line.ukuran})
                       </div>
-                      <div className="font-mono font-semibold tabular-nums text-[#141413] whitespace-nowrap">
-                        {formatRupiah(line.qty * line.hargaJual)}
+                      <div className="font-mono text-[11px] text-[#6B6B65]">
+                        {line.qty} x {formatRupiah(line.hargaJual)}
                       </div>
                     </div>
-                  );
-                })}
+                    <div className="font-mono font-semibold tabular-nums text-[#141413] whitespace-nowrap">
+                      {formatRupiah(line.qty * line.hargaJual)}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="mt-2.5 space-y-1">

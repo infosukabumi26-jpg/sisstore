@@ -22,6 +22,254 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ============================================================================
+   Mode Gelap (Dark Theme) — Global Palette & Surface Mapping
+   ============================================================================ */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #0f1117;
+  color: #f3f4f6;
+}
+
+/* Primary & Secondary Backgrounds */
+.dark .bg-\[\#F7F7F5\] {
+  background-color: #0f1117;
+}
+
+.dark .bg-white {
+  background-color: #171a21;
+}
+
+.dark .bg-\[\#F3F3F0\],
+.dark .bg-\[\#FAFAF8\],
+.dark .bg-\[\#EBEBE6\],
+.dark .bg-\[\#EFEFEA\],
+.dark .bg-\[\#FAF5EE\] {
+  background-color: #1e232e;
+}
+
+.dark aside .bg-\[\#F7F7F5\],
+.dark section .bg-\[\#F7F7F5\],
+.dark form .bg-\[\#F7F7F5\],
+.dark .rounded-xl .bg-\[\#F7F7F5\],
+.dark .rounded-lg.bg-\[\#F7F7F5\] {
+  background-color: #1e232e;
+}
+
+/* Borders */
+.dark .border-\[\#E5E5E0\] {
+  border-color: #2b313e;
+}
+
+.dark .border-\[\#D6D6D0\] {
+  border-color: #363d4d;
+}
+
+.dark .divide-\[\#E5E5E0\] > :not(:last-child) {
+  border-color: #2b313e;
+}
+
+/* Text Hierarchy */
+.dark .text-\[\#141413\] {
+  color: #f3f4f6;
+}
+
+.dark .text-\[\#3F3F3B\] {
+  color: #e2e6ed;
+}
+
+.dark .text-\[\#52524E\] {
+  color: #b4bcc8;
+}
+
+.dark .text-\[\#6B6B65\] {
+  color: #9ba3b0;
+}
+
+.dark .text-\[\#787872\],
+.dark .text-\[\#9A9A92\] {
+  color: #8891a0;
+}
+
+/* Brand Navy & Interactive Accents */
+.dark .text-\[\#1E3A8A\] {
+  color: #60a5fa;
+}
+
+.dark .bg-\[\#1E3A8A\]:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.dark button:disabled.disabled\:bg-\[\#D6D6D0\] {
+  background-color: #242936;
+}
+
+.dark button:disabled.disabled\:text-\[\#6B6B65\] {
+  color: #8b93a0;
+}
+
+.dark .hover\:bg-\[\#172554\]:not(:disabled):hover {
+  background-color: #1d4ed8;
+}
+
+.dark .border-\[\#1E3A8A\],
+.dark .border-\[\#1E3A8A\]\/25,
+.dark .border-\[\#1E3A8A\]\/30 {
+  border-color: rgba(96, 165, 250, 0.38);
+}
+
+.dark .bg-\[\#EFF6FF\],
+.dark .bg-\[\#EFF6FF\]\/60 {
+  background-color: rgba(37, 99, 235, 0.16);
+}
+
+.dark .border-\[\#BFDBFE\],
+.dark .border-\[\#DBEAFE\] {
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.dark .hover\:bg-\[\#DBEAFE\]:hover {
+  background-color: rgba(37, 99, 235, 0.28);
+}
+
+/* Primary Dark Action Buttons (e.g., Tambah ke Keranjang, Print, Upload Foto) */
+.dark button.bg-\[\#141413\]:not(:disabled) {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.dark button.bg-\[\#141413\]:not(:disabled):hover {
+  background-color: #1d4ed8;
+}
+
+/* Semantic Status Colors */
+.dark .text-\[\#15803D\] {
+  color: #4ade80;
+}
+
+.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.14);
+}
+
+.dark .border-emerald-200 {
+  border-color: rgba(52, 211, 153, 0.32);
+}
+
+.dark .text-\[\#B91C1C\] {
+  color: #f87171;
+}
+
+.dark .bg-red-50,
+.dark .bg-red-50\/25,
+.dark .bg-red-50\/70 {
+  background-color: rgba(239, 68, 68, 0.14);
+}
+
+.dark .border-red-200 {
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.dark .text-\[\#B45309\] {
+  color: #fbbf24;
+}
+
+.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.14);
+}
+
+.dark .border-amber-200 {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+/* Hover States */
+.dark .hover\:bg-\[\#F3F3F0\]:hover,
+.dark .hover\:bg-\[\#FAFAF8\]:hover,
+.dark .hover\:bg-\[\#EBEBE6\]:hover,
+.dark .hover\:bg-\[\#EFEFEA\]:hover,
+.dark .hover\:bg-black\/5:hover {
+  background-color: #262c3a;
+}
+
+.dark .hover\:bg-red-50:hover,
+.dark .hover\:bg-red-100:hover {
+  background-color: rgba(239, 68, 68, 0.24);
+}
+
+.dark .hover\:text-\[\#141413\]:hover {
+  color: #ffffff;
+}
+
+/* Form Controls */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #11141b;
+  border-color: #323949;
+  color: #f3f4f6;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #7d8594;
+}
+
+/* Keep Showcase Panel, Code Preview, QRIS Paper, & Printable Receipt Distinct */
+.dark .login-showcase-panel {
+  background-color: #0b0e14;
+  color: #ffffff;
+  border-right: 1px solid #232834;
+}
+
+.dark pre {
+  background-color: #090b10 !important;
+  color: #e5e7eb !important;
+  border-color: #2b313e !important;
+}
+
+.dark .qris-paper {
+  background-color: #ffffff !important;
+  border-color: #e5e5e0 !important;
+}
+
+/* Thermal Receipt always renders as clean black-on-white paper */
+.dark #printable-receipt {
+  background-color: #ffffff !important;
+  color: #141413 !important;
+  border-color: #d6d6d0 !important;
+}
+
+.dark #printable-receipt .text-\[\#141413\] {
+  color: #141413 !important;
+}
+
+.dark #printable-receipt .text-\[\#3F3F3B\] {
+  color: #3f3f3b !important;
+}
+
+.dark #printable-receipt .text-\[\#52524E\] {
+  color: #52524e !important;
+}
+
+.dark #printable-receipt .text-\[\#6B6B65\] {
+  color: #6b6b65 !important;
+}
+
+.dark #printable-receipt .text-\[\#15803D\] {
+  color: #15803d !important;
+}
+
+.dark #printable-receipt .text-\[\#B45309\] {
+  color: #b45309 !important;
+}
+
+.dark #printable-receipt .border-\[\#D6D6D0\],
+.dark #printable-receipt .divide-\[\#D6D6D0\] > :not(:last-child) {
+  border-color: #d6d6d0 !important;
+}
+
 /* Official Sign in with Google button styling */
 .gsi-material-button {
   -moz-user-select: none;

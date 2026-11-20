@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  BookOpen,
   Check,
   CheckCircle2,
   CloudUpload,
@@ -385,7 +386,7 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
   };
 
   const isDriveUrl = (url?: string) =>
-    Boolean(url && !url.startsWith('data:'));
+    Boolean(url && /drive\.google\.com|googleusercontent\.com/i.test(url));
 
   return (
     <div className="space-y-6">
@@ -411,6 +412,14 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <a
+              href="/Panduan-Lengkap-Sisstore.pdf"
+              download="Panduan-Lengkap-Sisstore.pdf"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3.5 py-2 text-xs font-semibold text-[#1E3A8A] hover:bg-[#DBEAFE]"
+            >
+              <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+              Unduh Tutorial PDF
+            </a>
             <button
               type="button"
               onClick={handleCopyCode}
@@ -508,6 +517,11 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                 onChange={(e) => setScriptUrlInput(e.target.value)}
                 className="mt-1.5 w-full rounded-lg border border-[#E5E5E0] px-3 py-2 font-mono text-xs focus:border-[#1E3A8A] focus:outline-none"
               />
+              {/\/dev(\?.*)?$/i.test(scriptUrlInput.trim()) && (
+                <p className="mt-1 text-[11px] font-medium text-[#B91C1C]">
+                  URL masih berakhiran <code className="font-mono">/dev</code>. Gunakan URL Web App berakhiran <code className="font-mono">/exec</code> agar sinkronisasi lancar.
+                </p>
+              )}
             </div>
 
             <div>

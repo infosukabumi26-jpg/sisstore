@@ -59,7 +59,7 @@ export const QrisVisual: React.FC<QrisVisualProps> = ({
   return (
     <div className="rounded-lg border border-[#E5E5E0] bg-[#F7F7F5] p-3">
       <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left sm:gap-3.5">
-        <div className="shrink-0 rounded-lg border border-[#E5E5E0] bg-white p-1.5">
+        <div className="qris-paper shrink-0 rounded-lg border border-[#E5E5E0] bg-white p-1.5">
           {qrisImageUrl ? (
             <img
               src={qrisImageUrl}

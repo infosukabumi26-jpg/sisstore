@@ -2,34 +2,43 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildAllSheetRows,
+  computeSyncSignature,
   isValidAppsScriptUrl,
   parseDataUrl,
   parseKatalogRows,
+  parseLaporanRows,
   parseSettingsRows,
+  parseTransaksiRows,
 } from './googleSheets.ts';
-import type { StoreSettings, TShirtItem } from '../types/sistor.ts';
+import type {
+  OpnameReport,
+  SaleTransaction,
+  StoreSettings,
+  TShirtItem,
+} from '../types/sistor.ts';
+import { calculateOpnameSummary } from '../utils/calculations.ts';
 
 const SAMPLE_SETTINGS: StoreSettings = {
-  storeName: 'Sistor',
-  storeTagline: 'Apparel',
-  storeAddress: 'Sukabumi',
+  storeName: 'Sisstore',
+  storeTagline: "Women's Fashion Shop",
+  storeAddress: 'Bekasi',
   storePhone: '08123456',
-  logoUrl: 'https://lh3.googleusercontent.com/d/logo123',
+  logoUrl: 'https://drive.google.com/thumbnail?id=logo123&sz=w1200',
   qrisMerchantId: 'ID123',
-  qrisMerchantName: 'SISTOR',
+  qrisMerchantName: 'SISSTORE',
   qrisImageUrl: 'data:image/png;base64,iVBORw0KGgo=',
   defaultCashier: 'Raka',
   autoPrintReceipt: false,
   receiptFooterNote: 'Terima kasih',
   bankAccounts: [
-    { id: 'b1', bankName: 'BCA', accountNumber: '123', accountHolder: 'Sistor' },
+    { id: 'b1', bankName: 'BCA', accountNumber: '123', accountHolder: 'Sisstore' },
   ],
   users: [
     {
       id: 'u1',
       username: 'admin',
       password: 'owner123',
-      displayName: 'Pemilik Sistor',
+      displayName: 'Pemilik Sisstore',
       role: 'ADMIN',
       shiftLabel: 'Owner',
     },
@@ -43,7 +52,7 @@ const SAMPLE_SETTINGS: StoreSettings = {
     },
   ],
   appsScriptUrl: 'https://script.google.com/macros/s/AKfycb123/exec',
-  driveFolderName: 'Sistor_Media_Drive',
+  driveFolderName: 'Sisstore_Media_Drive',
   spreadsheetId: '',
   spreadsheetTitle: '',
   lastSyncedAt: null,
@@ -52,7 +61,7 @@ const SAMPLE_SETTINGS: StoreSettings = {
 const SAMPLE_ITEM: TShirtItem = {
   id: 'tee-1',
   sku: 'STR-BLK-L',
-  nama: 'Sistor Heavy Black',
+  nama: 'Sisstore Heavy Black',
   kategori: '280gsm',
   ukuran: 'L',
   warna: 'Hitam',
@@ -62,15 +71,24 @@ const SAMPLE_ITEM: TShirtItem = {
   stokMasuk: 5,
   terjual: 3,
   stokFisik: 11,
+  penyesuaianHargaNego: 25000,
   keterangan: '1 cacat jahitan',
-  imageUrl: 'https://lh3.googleusercontent.com/d/img123',
+  imageUrl: 'https://drive.google.com/thumbnail?id=img123&sz=w1200',
   updatedAt: '2026-11-18T10:00:00Z',
 };
 
-test('isValidAppsScriptUrl accepts valid Google Apps Script Web App exec URLs and rejects invalid ones', () => {
+test('isValidAppsScriptUrl accepts valid /exec URLs and rejects /dev or invalid URLs', () => {
   assert.equal(
     isValidAppsScriptUrl('https://script.google.com/macros/s/AKfycb12345/exec'),
     true
+  );
+  assert.equal(
+    isValidAppsScriptUrl('https://script.google.com/a/macros/toko.id/s/AKfycb12345/exec'),
+    true
+  );
+  assert.equal(
+    isValidAppsScriptUrl('https://script.google.com/macros/s/AKfycb12345/dev'),
+    false
   );
   assert.equal(isValidAppsScriptUrl('http://script.google.com/macros/s/abc/exec'), false);
   assert.equal(isValidAppsScriptUrl('https://example.com/exec'), false);
@@ -84,17 +102,20 @@ test('parseDataUrl extracts mimeType, extension, and base64 payload', () => {
     base64: 'QUJDRA==',
     ext: 'png',
   });
-  assert.equal(parseDataUrl('https://lh3.googleusercontent.com/d/abc'), null);
+  assert.equal(parseDataUrl('https://drive.google.com/thumbnail?id=abc&sz=w1200'), null);
 });
 
 test('buildAllSheetRows keeps Google Drive URLs and omits inline base64 strings from Sheet cells', () => {
   const rows = buildAllSheetRows([SAMPLE_ITEM], [], [], SAMPLE_SETTINGS);
   assert.equal(rows.katalogRows[0][15], 'Foto Produk (Drive URL)');
-  assert.equal(rows.katalogRows[1][15], 'https://lh3.googleusercontent.com/d/img123');
+  assert.equal(
+    rows.katalogRows[1][15],
+    'https://drive.google.com/thumbnail?id=img123&sz=w1200'
+  );
 
   const logoRow = rows.settingsRows.find((r) => r[0] === 'logoUrl');
   const qrisRow = rows.settingsRows.find((r) => r[0] === 'qrisImageUrl');
-  assert.equal(logoRow?.[1], 'https://lh3.googleusercontent.com/d/logo123');
+  assert.equal(logoRow?.[1], 'https://drive.google.com/thumbnail?id=logo123&sz=w1200');
   assert.equal(qrisRow?.[1], '');
 });
 
@@ -107,17 +128,95 @@ test('buildAllSheetRows builds 7 professional retail tabs including Ringkasan_Ek
   assert.equal(rows.penjualanProdukRows[2][0], 'TOTAL');
 });
 
-test('parseKatalogRows and parseSettingsRows reconstruct items with Drive URLs, banks, and users', () => {
-  const rows = buildAllSheetRows([SAMPLE_ITEM], [], [], SAMPLE_SETTINGS);
+test('parseKatalogRows, parseTransaksiRows, parseLaporanRows, and parseSettingsRows reconstruct full state', () => {
+  const sampleTx: SaleTransaction = {
+    id: 'tx-1',
+    invoiceNo: 'STR-20261120-001',
+    tanggal: '2026-11-20',
+    waktu: '15:30',
+    items: [
+      {
+        itemId: 'tee-1',
+        sku: 'STR-BLK-L',
+        nama: 'Sisstore Heavy Black',
+        ukuran: 'L',
+        warna: 'Hitam',
+        qty: 1,
+        hpp: 65000,
+        hargaJual: 175000,
+        hargaKatalog: 150000,
+      },
+    ],
+    totalQty: 1,
+    totalHpp: 65000,
+    subtotal: 175000,
+    diskon: 0,
+    totalPenjualan: 175000,
+    metodePembayaran: 'CASH',
+    uangDiterima: 200000,
+    kembalian: 25000,
+    kasir: 'Pemilik Sisstore',
+    kasirRole: 'ADMIN',
+    catatan: 'Harga deal',
+  };
+
+  const sampleReport: OpnameReport = {
+    id: 'rep-1',
+    kodeLaporan: 'OPN-STR-20261120-01',
+    tanggalOpname: '2026-11-20',
+    periode: '20 Nov 2026',
+    petugas: 'Pemilik Sisstore',
+    catatanUmum: 'Rutin',
+    summary: calculateOpnameSummary([SAMPLE_ITEM], [sampleTx]),
+    discrepantItems: [],
+  };
+
+  const rows = buildAllSheetRows([SAMPLE_ITEM], [sampleTx], [sampleReport], SAMPLE_SETTINGS);
   const parsedItems = parseKatalogRows(rows.katalogRows);
   assert.equal(parsedItems.length, 1);
   assert.equal(parsedItems[0].sku, 'STR-BLK-L');
-  assert.equal(parsedItems[0].imageUrl, 'https://lh3.googleusercontent.com/d/img123');
+  assert.equal(parsedItems[0].penyesuaianHargaNego, 25000);
+  assert.equal(
+    parsedItems[0].imageUrl,
+    'https://drive.google.com/thumbnail?id=img123&sz=w1200'
+  );
+
+  const parsedTx = parseTransaksiRows(rows.transaksiRows);
+  assert.equal(parsedTx.length, 1);
+  assert.equal(parsedTx[0].invoiceNo, 'STR-20261120-001');
+  assert.equal(parsedTx[0].items[0].hargaJual, 175000);
+
+  const parsedReports = parseLaporanRows(rows.laporanRows);
+  assert.equal(parsedReports.length, 1);
+  assert.equal(parsedReports[0].kodeLaporan, 'OPN-STR-20261120-01');
 
   const parsedSettings = parseSettingsRows(rows.settingsRows);
-  assert.equal(parsedSettings.storeName, 'Sistor');
-  assert.equal(parsedSettings.logoUrl, 'https://lh3.googleusercontent.com/d/logo123');
+  assert.equal(parsedSettings.storeName, 'Sisstore');
+  assert.equal(
+    parsedSettings.logoUrl,
+    'https://drive.google.com/thumbnail?id=logo123&sz=w1200'
+  );
   assert.equal(parsedSettings.bankAccounts?.length, 1);
   assert.equal(parsedSettings.users?.length, 2);
   assert.equal(parsedSettings.users?.[0].role, 'ADMIN');
+});
+
+test('computeSyncSignature ignores sync metadata changes but detects business data changes', () => {
+  const sigA = computeSyncSignature([SAMPLE_ITEM], [], [], SAMPLE_SETTINGS);
+  const sigMetadataOnly = computeSyncSignature([SAMPLE_ITEM], [], [], {
+    ...SAMPLE_SETTINGS,
+    spreadsheetId: 'ss-999',
+    spreadsheetTitle: 'Updated Title',
+    driveFolderUrl: 'https://drive.google.com/drive/folders/123',
+    lastSyncedAt: '2026-11-20T10:00:00Z',
+  });
+  assert.equal(sigA, sigMetadataOnly);
+
+  const sigItemChanged = computeSyncSignature(
+    [{ ...SAMPLE_ITEM, terjual: SAMPLE_ITEM.terjual + 1 }],
+    [],
+    [],
+    SAMPLE_SETTINGS
+  );
+  assert.notEqual(sigA, sigItemChanged);
 });

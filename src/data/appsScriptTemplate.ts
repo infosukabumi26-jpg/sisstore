@@ -127,6 +127,34 @@ function formatSheetProfessional(ss, tabName, rows, options) {
   }
 }
 
+function setPublicViewSharing(file) {
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (err1) {
+    try {
+      file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+    } catch (err2) {
+      // Tetap lanjutkan jika kebijakan domain membatasi sharing publik otomatis
+    }
+  }
+}
+
+function readPullPayload(ss) {
+  var katalogSheet = ss.getSheetByName('Katalog_Kaos');
+  var settingsSheet = ss.getSheetByName('Pengaturan_Toko');
+  var transaksiSheet = ss.getSheetByName('Transaksi_Penjualan');
+  var laporanSheet = ss.getSheetByName('Laporan_Opname');
+  return {
+    spreadsheetId: ss.getId(),
+    spreadsheetTitle: ss.getName(),
+    spreadsheetUrl: ss.getUrl(),
+    katalogRows: katalogSheet ? katalogSheet.getDataRange().getValues() : [],
+    settingsRows: settingsSheet ? settingsSheet.getDataRange().getValues() : [],
+    transaksiRows: transaksiSheet ? transaksiSheet.getDataRange().getValues() : [],
+    laporanRows: laporanSheet ? laporanSheet.getDataRange().getValues() : []
+  };
+}
+
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'ping';
@@ -146,18 +174,9 @@ function doGet(e) {
     }
 
     if (action === 'pullAll') {
-      var katalogSheet = ss.getSheetByName('Katalog_Kaos');
-      var katalogValues = katalogSheet ? katalogSheet.getDataRange().getValues() : [];
-      var settingsSheet = ss.getSheetByName('Pengaturan_Toko');
-      var settingsValues = settingsSheet ? settingsSheet.getDataRange().getValues() : [];
-      return jsonResponse({
-        ok: true,
-        spreadsheetId: ss.getId(),
-        spreadsheetTitle: ss.getName(),
-        spreadsheetUrl: ss.getUrl(),
-        katalogRows: katalogValues,
-        settingsRows: settingsValues
-      });
+      var pulled = readPullPayload(ss);
+      pulled.ok = true;
+      return jsonResponse(pulled);
     }
 
     return jsonResponse({ ok: false, error: 'Action tidak dikenal: ' + action });
@@ -167,12 +186,18 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  var lock = LockService.getScriptLock();
+  var hasLock = false;
   try {
     var raw = (e && e.postData && e.postData.contents) ? e.postData.contents : '{}';
     var payload = JSON.parse(raw);
     var action = payload.action || 'ping';
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var folderName = payload.folderName || DEFAULT_DRIVE_FOLDER;
+
+    if (action === 'uploadImage' || action === 'syncAll') {
+      hasLock = lock.tryLock(15000);
+    }
 
     if (action === 'ping') {
       var rootFolder = getSisstoreRootFolder(folderName);
@@ -187,6 +212,9 @@ function doPost(e) {
     }
 
     if (action === 'uploadImage') {
+      if (!payload.base64) {
+        return jsonResponse({ ok: false, error: 'Payload gambar base64 kosong.' });
+      }
       var root = getSisstoreRootFolder(folderName);
       var subMap = { produk: 'Produk_Kaos', logo: 'Logo_Toko', qris: 'QRIS_Toko' };
       var subName = subMap[payload.category] || 'Lainnya';
@@ -195,15 +223,17 @@ function doPost(e) {
       var bytes = Utilities.base64Decode(payload.base64);
       var blob = Utilities.newBlob(bytes, payload.mimeType || 'image/jpeg', payload.fileName || ('sisstore-' + Date.now() + '.jpg'));
       var file = subFolder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      setPublicViewSharing(file);
 
       var fileId = file.getId();
-      var directUrl = 'https://lh3.googleusercontent.com/d/' + fileId;
+      var directUrl = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1200';
+      var lh3Url = 'https://lh3.googleusercontent.com/d/' + fileId;
 
       return jsonResponse({
         ok: true,
         fileId: fileId,
         directUrl: directUrl,
+        lh3Url: lh3Url,
         webViewLink: file.getUrl(),
         driveFolderUrl: root.getUrl()
       });
@@ -220,7 +250,7 @@ function doPost(e) {
       if (payload.katalogRows) {
         formatSheetProfessional(ss, 'Katalog_Kaos', payload.katalogRows, {
           tabColor: '#141413',
-          currencyCols: [7, 8]
+          currencyCols: [7, 8, 17]
         });
       }
       if (payload.opnameRows) {
@@ -268,22 +298,19 @@ function doPost(e) {
     }
 
     if (action === 'pullAll') {
-      var katSheet = ss.getSheetByName('Katalog_Kaos');
-      var katValues = katSheet ? katSheet.getDataRange().getValues() : [];
-      var setSheet = ss.getSheetByName('Pengaturan_Toko');
-      var setValues = setSheet ? setSheet.getDataRange().getValues() : [];
-      return jsonResponse({
-        ok: true,
-        spreadsheetId: ss.getId(),
-        spreadsheetTitle: ss.getName(),
-        spreadsheetUrl: ss.getUrl(),
-        katalogRows: katValues,
-        settingsRows: setValues
-      });
+      var pulledPost = readPullPayload(ss);
+      pulledPost.ok = true;
+      return jsonResponse(pulledPost);
     }
 
     return jsonResponse({ ok: false, error: 'Action tidak dikenal: ' + action });
   } catch (err) {
     return jsonResponse({ ok: false, error: err && err.message ? err.message : String(err) });
+  } finally {
+    if (hasLock) {
+      try {
+        lock.releaseLock();
+      } catch (releaseErr) {}
+    }
   }
 }`;

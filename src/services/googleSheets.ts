@@ -37,6 +37,8 @@ export interface AppsScriptPullResult {
   spreadsheetTitle: string;
   spreadsheetUrl: string;
   items: TShirtItem[];
+  transactions: SaleTransaction[];
+  reports: OpnameReport[];
   settingsPatch: Partial<StoreSettings>;
 }
 
@@ -49,7 +51,8 @@ export function isValidAppsScriptUrl(rawUrl: string): boolean {
       parsed.protocol === 'https:' &&
       (parsed.hostname === 'script.google.com' ||
         parsed.hostname === 'script.googleusercontent.com') &&
-      parsed.pathname.includes('/macros/')
+      parsed.pathname.includes('/macros/') &&
+      /\/exec\/?$/i.test(parsed.pathname)
     );
   } catch {
     return false;
@@ -106,6 +109,7 @@ export function buildAllSheetRows(
       'Keterangan Lapangan',
       'Updated At',
       'Foto Produk (Drive URL)',
+      'Penyesuaian Harga Jadi',
     ],
     ...items.map((item) => {
       const m = calculateItemMetrics(item);
@@ -126,6 +130,7 @@ export function buildAllSheetRows(
         item.keterangan,
         item.updatedAt,
         sanitizeCellUrl(item.imageUrl),
+        item.penyesuaianHargaNego ?? 0,
       ];
     }),
   ];
@@ -245,6 +250,7 @@ export function buildAllSheetRows(
       'Kasir',
       'Role Kasir',
       'Catatan',
+      'Items JSON (Restore)',
     ],
     ...transactions.map((tx) => [
       tx.id,
@@ -264,6 +270,7 @@ export function buildAllSheetRows(
       tx.kasir,
       tx.kasirRole === 'ADMIN' ? 'Owner / Admin' : 'Operator / Kasir',
       tx.catatan,
+      JSON.stringify(tx.items),
     ]),
   ];
 
@@ -332,6 +339,7 @@ export function buildAllSheetRows(
       'Penjualan QRIS',
       'Penjualan Transfer Bank',
       'Catatan Umum',
+      'Detail JSON (Restore)',
     ],
     ...reports.map((rep) => [
       rep.kodeLaporan,
@@ -349,6 +357,7 @@ export function buildAllSheetRows(
       rep.summary.paymentBreakdown.QRIS.total,
       rep.summary.paymentBreakdown.TRANSFER_BANK.total,
       rep.catatanUmum,
+      JSON.stringify(rep),
     ]),
   ];
 
@@ -406,6 +415,7 @@ export function parseKatalogRows(values: unknown[][]): TShirtItem[] {
     };
 
     const imageUrl = String(row[15] ?? '').trim();
+    const penyesuaianHargaNego = row.length > 16 ? toNum(row[16], 0) : 0;
 
     parsed.push({
       id: String(row[0] || `sheet-${i}`),
@@ -425,10 +435,99 @@ export function parseKatalogRows(values: unknown[][]): TShirtItem[] {
       ),
       keterangan: String(row[13] ?? ''),
       updatedAt: String(row[14] || new Date().toISOString()),
+      ...(penyesuaianHargaNego !== 0 ? { penyesuaianHargaNego } : {}),
       ...(imageUrl ? { imageUrl } : {}),
     });
   }
 
+  return parsed;
+}
+
+export function parseTransaksiRows(values: unknown[][]): SaleTransaction[] {
+  if (!Array.isArray(values) || values.length <= 1) return [];
+  const toNum = (val: unknown, fallback = 0) => {
+    if (typeof val === 'number' && Number.isFinite(val)) return val;
+    const cleaned = String(val ?? '').replace(/[^0-9-]/g, '');
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const parsed: SaleTransaction[] = [];
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row || row.length < 15) continue;
+    const id = String(row[0] ?? '').trim();
+    const invoiceNo = String(row[1] ?? '').trim();
+    if (!id || !invoiceNo) continue;
+
+    let txItems: SaleTransaction['items'] = [];
+    if (row[17]) {
+      try {
+        const maybe = JSON.parse(String(row[17]));
+        if (Array.isArray(maybe)) txItems = maybe;
+      } catch {
+        txItems = [];
+      }
+    }
+
+    const rawMethod = String(row[10] ?? 'CASH').toUpperCase();
+    const metodePembayaran: SaleTransaction['metodePembayaran'] =
+      rawMethod === 'QRIS'
+        ? 'QRIS'
+        : rawMethod === 'TRANSFER_BANK'
+        ? 'TRANSFER_BANK'
+        : 'CASH';
+    const rawRef = String(row[11] ?? '').trim();
+
+    parsed.push({
+      id,
+      invoiceNo,
+      tanggal: String(row[2] ?? '').slice(0, 10),
+      waktu: String(row[3] ?? '').slice(0, 5),
+      items: txItems,
+      totalQty: toNum(row[5]),
+      totalHpp: toNum(row[6]),
+      subtotal: toNum(row[7]),
+      diskon: toNum(row[8]),
+      totalPenjualan: toNum(row[9]),
+      metodePembayaran,
+      ...(metodePembayaran === 'TRANSFER_BANK' && rawRef && rawRef !== '-'
+        ? { bankTujuan: rawRef }
+        : rawRef && rawRef !== '-'
+        ? { referensiPembayaran: rawRef }
+        : {}),
+      ...(row[12] !== '' && row[12] !== undefined
+        ? { uangDiterima: toNum(row[12]) }
+        : {}),
+      ...(row[13] !== '' && row[13] !== undefined
+        ? { kembalian: toNum(row[13]) }
+        : {}),
+      kasir: String(row[14] ?? 'Kasir'),
+      kasirRole: String(row[15] ?? '').toLowerCase().includes('admin')
+        ? 'ADMIN'
+        : 'OPERATOR',
+      catatan: String(row[16] ?? ''),
+    });
+  }
+
+  return parsed;
+}
+
+export function parseLaporanRows(values: unknown[][]): OpnameReport[] {
+  if (!Array.isArray(values) || values.length <= 1) return [];
+  const parsed: OpnameReport[] = [];
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row || !row[15]) continue;
+    try {
+      const rep = JSON.parse(String(row[15])) as OpnameReport;
+      if (rep && rep.id && rep.kodeLaporan && rep.summary) {
+        parsed.push(rep);
+      }
+    } catch {
+      // Ignore malformed row
+    }
+  }
   return parsed;
 }
 
@@ -483,19 +582,42 @@ async function postAppsScript<T>(
   payload: Record<string, unknown>
 ): Promise<T> {
   const url = appsScriptUrl.trim();
+  if (/\/dev(\?.*)?$/i.test(url)) {
+    throw new Error(
+      'URL berakhir dengan /dev (mode uji). Gunakan URL Web App berakhiran /exec dari menu Deploy → New deployment di Google Apps Script.'
+    );
+  }
   if (!isValidAppsScriptUrl(url)) {
     throw new Error(
-      'URL Web App Google Apps Script tidak valid. Pastikan berawalan https://script.google.com/macros/.../exec'
+      'URL Web App Google Apps Script tidak valid. Pastikan berawalan https://script.google.com/macros/... dan berakhiran /exec'
     );
   }
 
-  // Use text/plain to send a CORS simple request (avoids OPTIONS preflight rejected by Apps Script)
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-    redirect: 'follow',
-  });
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), 45000);
+
+  let res: Response;
+  try {
+    // Use text/plain to send a CORS simple request (avoids OPTIONS preflight rejected by Apps Script)
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error(
+        'Koneksi ke Google Apps Script melebihi batas waktu (45 detik). Periksa internet atau coba sinkronkan ulang.'
+      );
+    }
+    throw new Error(
+      'Tidak dapat terhubung ke Google Apps Script. Pastikan koneksi internet aktif, URL berakhiran /exec, dan deployment diset "Who has access: Anyone".'
+    );
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     throw new Error(
@@ -509,7 +631,7 @@ async function postAppsScript<T>(
     data = JSON.parse(text);
   } catch {
     throw new Error(
-      'Respons Google Apps Script bukan JSON. Pastikan URL berakhir dengan /exec dan deployment Web App diakses sebagai Anyone.'
+      'Respons Google Apps Script bukan JSON (kemungkinan dialihkan ke halaman login Google). Pastikan deployment Web App diset "Who has access: Anyone" dan URL berakhiran /exec.'
     );
   }
 
@@ -580,6 +702,8 @@ export async function pullAllViaAppsScript(
     spreadsheetUrl: string;
     katalogRows?: unknown[][];
     settingsRows?: unknown[][];
+    transaksiRows?: unknown[][];
+    laporanRows?: unknown[][];
   }>(appsScriptUrl, {
     action: 'pullAll',
   });
@@ -589,6 +713,38 @@ export async function pullAllViaAppsScript(
     spreadsheetTitle: res.spreadsheetTitle,
     spreadsheetUrl: res.spreadsheetUrl,
     items: parseKatalogRows(res.katalogRows || []),
+    transactions: parseTransaksiRows(res.transaksiRows || []),
+    reports: parseLaporanRows(res.laporanRows || []),
     settingsPatch: parseSettingsRows(res.settingsRows || []),
   };
+}
+
+export function computeSyncSignature(
+  items: TShirtItem[],
+  transactions: SaleTransaction[],
+  reports: OpnameReport[],
+  settings: StoreSettings
+): string {
+  return JSON.stringify({
+    items,
+    transactions,
+    reports,
+    settings: {
+      storeName: settings.storeName,
+      storeTagline: settings.storeTagline,
+      storeAddress: settings.storeAddress,
+      storePhone: settings.storePhone,
+      logoUrl: settings.logoUrl,
+      qrisMerchantId: settings.qrisMerchantId,
+      qrisMerchantName: settings.qrisMerchantName,
+      qrisImageUrl: settings.qrisImageUrl,
+      defaultCashier: settings.defaultCashier,
+      autoPrintReceipt: settings.autoPrintReceipt,
+      receiptFooterNote: settings.receiptFooterNote,
+      bankAccounts: settings.bankAccounts,
+      users: settings.users,
+      appsScriptUrl: settings.appsScriptUrl,
+      driveFolderName: settings.driveFolderName,
+    },
+  });
 }

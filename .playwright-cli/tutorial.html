@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Buku Panduan Lengkap Sisstore — Informasi Aplikasi, Panduan Kasir &amp; Panduan Owner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      color: #141413;
+      background: #ffffff;
+      font-size: 10pt;
+      line-height: 1.54;
+    }
+    .page-break { page-break-before: always; break-before: page; }
+    .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+
+    /* Cover Header */
+    .cover {
+      border: 1px solid #E5E5E0;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #FAF5EE 0%, #FFFFFF 65%, #EFF6FF 100%);
+      padding: 24px 26px;
+      margin-bottom: 16px;
+    }
+    .cover-top {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid #E5E5E0;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+    }
+    .cover-logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 12px;
+      border: 1px solid #E5E5E0;
+      object-fit: cover;
+      background: #FAF5EE;
+    }
+    .badge {
+      display: inline-block;
+      background: #1E3A8A;
+      color: #ffffff;
+      font-size: 8pt;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .badge-green { background: #15803D; }
+    .badge-amber { background: #B45309; }
+    h1 {
+      font-size: 20pt;
+      font-weight: 800;
+      color: #141413;
+      line-height: 1.2;
+    }
+    .subtitle {
+      font-size: 10pt;
+      color: #52524E;
+      margin-top: 4px;
+    }
+    .store-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      font-size: 9.2pt;
+      color: #3F3F3B;
+    }
+    .meta-box {
+      background: #ffffff;
+      border: 1px solid #E5E5E0;
+      border-radius: 8px;
+      padding: 9px 12px;
+    }
+    .meta-label {
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6B6B65;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    h2 {
+      font-size: 13.5pt;
+      font-weight: 800;
+      color: #1E3A8A;
+      border-bottom: 2px solid #1E3A8A;
+      padding-bottom: 5px;
+      margin: 16px 0 10px;
+    }
+    h3 {
+      font-size: 10.8pt;
+      font-weight: 700;
+      color: #141413;
+      margin: 12px 0 6px;
+    }
+    p { margin-bottom: 7px; color: #3F3F3B; }
+    ul, ol { margin: 5px 0 9px 18px; color: #3F3F3B; }
+    li { margin-bottom: 4px; }
+    strong { color: #141413; }
+    code {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #F3F3F0;
+      border: 1px solid #E5E5E0;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 8.8pt;
+      color: #141413;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 12px;
+      font-size: 9pt;
+    }
+    th {
+      background: #1E3A8A;
+      color: #ffffff;
+      text-align: left;
+      padding: 6px 9px;
+      font-weight: 700;
+      border: 1px solid #1E3A8A;
+    }
+    td {
+      padding: 6px 9px;
+      border: 1px solid #D6D6D0;
+      vertical-align: top;
+      color: #3F3F3B;
+    }
+    tr:nth-child(even) td { background: #F8FAFC; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 8px 0;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin: 8px 0;
+    }
+    .card {
+      border: 1px solid #E5E5E0;
+      border-radius: 10px;
+      padding: 11px 13px;
+      background: #F7F7F5;
+    }
+    .card-white {
+      border: 1px solid #E5E5E0;
+      border-radius: 10px;
+      padding: 11px 13px;
+      background: #ffffff;
+    }
+    .callout {
+      border-left: 4px solid #1E3A8A;
+      background: #EFF6FF;
+      padding: 9px 13px;
+      border-radius: 0 8px 8px 0;
+      margin: 9px 0;
+      font-size: 9.2pt;
+      color: #1E3A8A;
+    }
+    .callout-green {
+      border-left-color: #15803D;
+      background: #ECFDF5;
+      color: #14532D;
+    }
+    .callout-amber {
+      border-left-color: #B45309;
+      background: #FFFBEB;
+      color: #78350F;
+    }
+    .step-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 7px;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 21px;
+      height: 21px;
+      border-radius: 6px;
+      background: #1E3A8A;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 8.8pt;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .section-pill {
+      display: inline-block;
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      color: #1E3A8A;
+      font-size: 8pt;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HALAMAN 1: SAMPUL & INFORMASI DETAIL APLIKASI -->
+  <div class="cover">
+    <div class="cover-top">
+      <img class="cover-logo" src="http://localhost:3000/assets/aistudio/IMG-20261119-WA0012_92820685.jpg" alt="Logo Sisstore" />
+      <div>
+        <span class="badge">Buku Panduan Resmi Operasional Toko</span>
+        <h1>Sisstore — Panduan Lengkap Aplikasi Kasir POS, Stock Opname &amp; Manajemen Toko</h1>
+        <p class="subtitle">Informasi Lengkap Sistem, Tata Cara Penggunaan Harian untuk Kasir (Operator), serta Panduan Pengelolaan Bisnis untuk Pemilik (Owner / Admin)</p>
+      </div>
+    </div>
+
+    <div class="store-meta">
+      <div class="meta-box">
+        <div class="meta-label">Identitas Outlet</div>
+        <strong>SISSTORE</strong> — Women's Fashion Shop · Lokal &amp; Impor<br />
+        Jam Operasional: <strong>Setiap Hari, 10.00–21.00 WIB</strong>
+      </div>
+      <div class="meta-box">
+        <div class="meta-label">Alamat Toko</div>
+        Jl. Klp. Dua, RT.001/RW.007, Padurenan, Kec. Mustika Jaya, Kota Bekasi, Jawa Barat
+      </div>
+    </div>
+  </div>
+
+  <h2>1. Informasi Lengkap &amp; Mengenal Aplikasi Sisstore</h2>
+  <p><strong>Sisstore</strong> adalah aplikasi manajemen retail pakaian terpadu berbasis web yang dirancang khusus untuk membantu operasional harian toko fashion secara cepat, rapi, dan profesional — mulai dari pelayanan transaksi di meja kasir, pencatatan stok awal &amp; restock, kontrol hasil hitung fisik barang (<em>stock opname</em>), hingga penyusunan laporan keuangan dan laba rugi toko.</p>
+
+  <h3>1.1 Lima Pilar Fitur Utama Aplikasi Sisstore</h3>
+  <div class="grid-2 avoid-break">
+    <div class="card">
+      <strong>1. Kasir Penjualan (POS) Fleksibel</strong>
+      <p style="margin-top:3px; margin-bottom:0;">Dilengkapi keranjang belanja interaktif, filter ukuran (<code>S</code>–<code>XXL</code>), kolom <strong>Harga Jadi / pcs</strong> untuk transaksi negosiasi langsung di toko, diskon tambahan, pembayaran <strong>Cash</strong> (hitung kembalian otomatis), <strong>QRIS</strong>, &amp; <strong>Transfer Bank</strong>, serta cetak struk thermal (58mm/80mm).</p>
+    </div>
+    <div class="card">
+      <strong>2. Katalog Produk &amp; Manajemen HPP</strong>
+      <p style="margin-top:3px; margin-bottom:0;">Tempat Owner mendata setiap SKU kaos, foto produk, Harga Dasar modal (HPP), Harga Jual normal, pengaturan <strong>Stok Awal</strong>, serta fitur <strong>Restock</strong> cepat saat ada barang datang dari supplier.</p>
+    </div>
+    <div class="card">
+      <strong>3. Stock Opname Otomatis &amp; Akurat</strong>
+      <p style="margin-top:3px; margin-bottom:0;">Menghitung otomatis sisa stok catatan komputer (<code>Stok Sistem</code>) lalu membandingkannya dengan hitungan nyata petugas di rak (<code>Stok Fisik</code>). Selisih kurang/lebih serta catatan temuan lapangan terekam jelas dalam Berita Acara.</p>
+    </div>
+    <div class="card">
+      <strong>4. Laporan Lengkap &amp; Dashboard Pemilik</strong>
+      <p style="margin-top:3px; margin-bottom:0;">Menyajikan ringkasan omzet, performa tiap kasir/shift, peringkat produk terlaris, arus kas per metode pembayaran, kerugian selisih barang, laba bersih, serta ekspor laporan ke file Excel (<code>.csv</code>) dan PDF.</p>
+    </div>
+  </div>
+  <div class="card avoid-break" style="margin-top:2px; margin-bottom:10px;">
+    <strong>5. Sistem Multi-User &amp; Keamanan Hak Akses Berbasis Peran</strong>
+    <p style="margin-top:3px; margin-bottom:0;">Mendukung banyak akun pengguna dengan pemisahan peran <strong>Kasir (Operator)</strong> dan <strong>Pemilik (Owner / Admin)</strong> beserta pengelolaan kata sandi. Setiap transaksi struk dan laporan opname mencatat nama petugas aktif secara otomatis, sementara data sensitif seperti HPP modal dan laba bersih hanya dapat dilihat oleh Pemilik.</p>
+  </div>
+
+  <h3>1.2 Pembagian Peran &amp; Hak Akses Pengguna (Multi-Role)</h3>
+  <p>Aplikasi Sisstore memisahkan tampilan antarmuka menjadi <strong>2 jenis pengguna</strong> demi menjaga kerahasiaan data modal (HPP) &amp; laba bersih toko, sekaligus memastikan kasir bekerja lebih fokus dan cepat:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:24%;">Menu / Fitur</th>
+        <th style="width:38%;">Kasir / Operator (OPERATOR)</th>
+        <th style="width:38%;">Pemilik / Owner (ADMIN)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Dashboard Pemilik</strong></td>
+        <td>Tidak ditampilkan (login langsung masuk ke meja kasir).</td>
+        <td><strong>Akses Penuh:</strong> Omzet total, Laba Kotor, Kerugian Selisih, Laba Bersih, Kas/QRIS/Transfer, Valuasi Aset, &amp; Stok Menipis.</td>
+      </tr>
+      <tr>
+        <td><strong>Kasir Penjualan (POS)</strong></td>
+        <td><strong>Akses Penuh:</strong> Pilih produk, keranjang, atur Harga Jadi / pcs, diskon, proses bayar, cetak struk &amp; lihat riwayat transaksi.</td>
+        <td><strong>Akses Penuh:</strong> Seluruh fitur POS ditambah visibilitas estimasi HPP saat transaksi.</td>
+      </tr>
+      <tr>
+        <td><strong>Stock Opname</strong></td>
+        <td><strong>Input Stock Opname:</strong> Isi angka <em>Stok Fisik</em>, filter selisih, catat <em>Keterangan</em>, &amp; simpan Berita Acara (tanpa info HPP/rugi).</td>
+        <td><strong>Audit Stock Opname:</strong> Lihat seluruh kolom lengkap termasuk HPP, Nilai Penjualan, Laba, Kerugian Selisih (Rp), &amp; Unduh CSV.</td>
+      </tr>
+      <tr>
+        <td><strong>Pusat Laporan</strong></td>
+        <td><strong>Laporan Shift Kasir:</strong> Pantau omzet shift, rincian Cash/QRIS/Transfer, arsip Berita Acara Opname, &amp; Cetak Laporan.</td>
+        <td><strong>Laporan Lengkap:</strong> 3 Tab terpadu (Penjualan &amp; Kasir, Stock Opname, Laba Rugi &amp; Valuasi Aset) + Ekspor CSV &amp; Cetak PDF.</td>
+      </tr>
+      <tr>
+        <td><strong>Katalog Kaos &amp; HPP</strong></td>
+        <td>Tidak dapat mengakses (mencegah perubahan HPP &amp; stok awal oleh kasir).</td>
+        <td><strong>Akses Penuh:</strong> Tambah varian baru, atur Stok Awal, Edit HPP/Harga Jual, Restock barang datang, Upload Foto, &amp; Hapus varian.</td>
+      </tr>
+      <tr>
+        <td><strong>Pengaturan Toko &amp; Akun</strong></td>
+        <td>Tidak dapat mengakses pengaturan toko maupun akun lain.</td>
+        <td><strong>Akses Penuh:</strong> Profil/Logo/Alamat toko, upload QRIS, daftar Rekening Bank, &amp; Manajemen User (Tambah/Edit/Update Password).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout avoid-break">
+    <strong>Akun Login Bawaan Awal &amp; Keamanan:</strong><br />
+    • <strong>Owner / Admin:</strong> Username <code>admin</code> · Kata Sandi <code>owner123</code><br />
+    • <strong>Kasir / Operator:</strong> Username <code>operator</code> · Kata Sandi <code>kasir123</code><br />
+    <em>Disarankan agar Owner segera memperbarui kata sandi bawaan dan membuat akun masing-masing karyawan melalui menu Pengaturan agar setiap struk dan berita acara mencatat nama petugas yang sebenarnya.</em>
+  </div>
+
+  <!-- HALAMAN 2: PENGERTIAN SKU, PERBEDAAN KATALOG VS STOCK OPNAME & KONSEP STOK -->
+  <div class="page-break"></div>
+  <h3>1.3 Mengenal Apa Itu SKU (Stock Keeping Unit)</h3>
+  <p><strong>SKU</strong> (<em>Stock Keeping Unit</em>) adalah <strong>kode unik pengenal untuk setiap varian barang</strong> di toko. Di toko pakaian seperti Sisstore, satu model baju yang memiliki ukuran dan warna berbeda wajib memiliki masing-masing 1 kode SKU agar stok, HPP, dan harga jualnya tidak tertukar saat penjualan maupun saat Stock Opname.</p>
+
+  <div class="grid-2 avoid-break">
+    <div class="card">
+      <strong>Contoh Kode SKU di Sisstore (Boxy Heavyweight 280gsm)</strong>
+      <ul>
+        <li><code>STR-HVY-BLK-M</code> → Kaos Sisstore, Heavyweight, Hitam, ukuran <strong>M</strong></li>
+        <li><code>STR-HVY-BLK-L</code> → Kaos Sisstore, Heavyweight, Hitam, ukuran <strong>L</strong></li>
+        <li><code>STR-HVY-BLK-XL</code> → Kaos Sisstore, Heavyweight, Hitam, ukuran <strong>XL</strong></li>
+      </ul>
+      <div style="font-size:8.6pt; color:#52524E; margin-top:4px;">
+        <strong>Tips Format Penamaan:</strong> Gunakan pola <code>[KODE TOKO]-[MODEL]-[WARNA]-[UKURAN]</code>, misalnya <code>STR-BLS-CRM-M</code> (Blouse Cream M).
+      </div>
+    </div>
+    <div class="card">
+      <strong>3 Fungsi Utama SKU di Aplikasi</strong>
+      <ul>
+        <li><strong>Pemisahan Stok Ukuran &amp; Warna:</strong> Saat kasir menjual ukuran <em>M</em>, stok yang berkurang hanya <code>STR-HVY-BLK-M</code>.</li>
+        <li><strong>Pencarian Cepat:</strong> Kasir atau petugas opname cukup mengetik sebagian kode SKU (mis. <code>HVY-BLK</code>) di kotak cari.</li>
+        <li><strong>Pencatatan HPP &amp; Harga Rapi:</strong> Setiap varian ukuran (mis. <em>XL/XXL</em>) dapat diberi HPP dan Harga Jual berbeda.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>1.4 Memahami Perbedaan "Katalog Kaos &amp; HPP" vs "Stock Opname"</h3>
+  <p>Agar pencatatan stok selalu akurat dan tidak membingungkan antara kasir dan pemilik, pahami perbedaan fungsi dua menu berikut:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:20%;">Aspek</th>
+        <th style="width:40%;">Menu: Katalog Kaos &amp; HPP (Khusus Owner)</th>
+        <th style="width:40%;">Menu: Stock Opname (Kasir &amp; Owner)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Tujuan Utama</strong></td>
+        <td>Mengelola <strong>master barang, harga modal (HPP), harga jual, &amp; mencatat stok masuk (kulakan/restock)</strong>.</td>
+        <td>Melakukan <strong>audit hitung fisik</strong> untuk mencocokkan jumlah barang nyata di rak/gudang dengan catatan komputer.</td>
+      </tr>
+      <tr>
+        <td><strong>Kapan Dipakai?</strong></td>
+        <td>Saat ada <strong>model/varian baru</strong>, ingin mengubah harga, mengisi <strong>Stok Awal</strong>, atau ada <strong>kiriman stok baru datang</strong>.</td>
+        <td>Saat pengecekan rutin (akhir shift harian kasir, mingguan, atau tutup buku bulanan).</td>
+      </tr>
+      <tr>
+        <td><strong>Data yang Diubah</strong></td>
+        <td>Nama, SKU, ukuran, warna, foto, HPP, harga jual, <code>Stok Awal</code>, dan menambah <code>Stok Masuk</code> (via Restock).</td>
+        <td>Hanya mengisi angka <code>Stok Fisik</code> (hasil hitungan nyata) dan kolom <code>Keterangan</code> bila ditemukan selisih.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>1.5 Cara Kerja Rumus Stok &amp; Keuangan Otomatis</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:26%;">Istilah di Tabel</th>
+        <th style="width:44%;">Rumus / Arti</th>
+        <th style="width:30%;">Penjelasan Praktis</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Stok Awal</strong></td>
+        <td>Jumlah barang saat pertama kali didata di periode berjalan.</td>
+        <td>Diisi sekali di awal dari menu Katalog Kaos &amp; HPP.</td>
+      </tr>
+      <tr>
+        <td><strong>Stok Masuk</strong></td>
+        <td>Total barang tambahan dari kulakan/supplier.</td>
+        <td>Bertambah otomatis saat Owner memakai tombol <strong>Restock</strong>.</td>
+      </tr>
+      <tr>
+        <td><strong>Terjual</strong></td>
+        <td>Total pcs yang laku dibeli pelanggan.</td>
+        <td>Bertambah otomatis setiap kali transaksi selesai di Kasir POS.</td>
+      </tr>
+      <tr>
+        <td><strong>Stok Sistem</strong></td>
+        <td><code>Stok Awal + Stok Masuk - Terjual</code></td>
+        <td>Jumlah barang yang <em>seharusnya</em> ada di toko menurut komputer.</td>
+      </tr>
+      <tr>
+        <td><strong>Stok Fisik</strong></td>
+        <td>Hasil hitungan langsung dengan mata di rak &amp; gudang.</td>
+        <td>Diisi manual oleh Kasir/Owner saat Stock Opname.</td>
+      </tr>
+      <tr>
+        <td><strong>Selisih Barang</strong></td>
+        <td><code>Stok Fisik - Stok Sistem</code></td>
+        <td><code>0</code> = Sesuai; <code>Negatif (-2)</code> = Kurang/Hilang; <code>Positif (+1)</code> = Lebih.</td>
+      </tr>
+      <tr>
+        <td><strong>Kerugian Selisih</strong></td>
+        <td>Jika Selisih &lt; 0: <code>|Selisih| × HPP</code> (Khusus Owner)</td>
+        <td>Nilai modal yang hilang akibat barang kurang (jika lebih = Rp 0).</td>
+      </tr>
+      <tr>
+        <td><strong>Laba Kotor &amp; Bersih</strong></td>
+        <td>Laba Kotor = <code>Nilai Penjualan - Total HPP Terjual</code><br />Laba Bersih = <code>Laba Kotor - Kerugian Selisih</code></td>
+        <td>Menunjukkan keuntungan riil toko setelah memperhitungkan harga nego dan selisih stok.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- HALAMAN 3: PANDUAN LENGKAP KASIR (OPERATOR) - BAGIAN 1 -->
+  <div class="page-break"></div>
+  <span class="section-pill">Bagian A — Panduan Operasional Kasir</span>
+  <h2>2. Panduan Lengkap Penggunaan untuk Kasir (Operator)</h2>
+
+  <h3>2.1 Cara Login &amp; Pergantian Shift (Logout)</h3>
+  <div class="grid-2 avoid-break">
+    <div class="card">
+      <strong>Langkah Masuk (Login)</strong>
+      <ol>
+        <li>Buka aplikasi Sisstore di browser HP, tablet, atau laptop kasir.</li>
+        <li>Pada halaman Login, klik kartu pilihan akun cepat <strong>Operator / Kasir</strong> atau ketik manual <strong>Username</strong> dan <strong>Kata Sandi</strong> milik Anda.</li>
+        <li>Klik tombol <strong>Masuk ke Dashboard</strong>. Sistem otomatis membuka layar <strong>Kasir Penjualan</strong>.</li>
+        <li>Gunakan tombol <strong>Mode Gelap / Mode Terang</strong> di pojok kanan atas Login maupun header aplikasi untuk menyesuaikan kenyamanan mata.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <strong>Langkah Keluar / Ganti Shift</strong>
+      <ol>
+        <li>Saat jam kerja shift berakhir, klik tombol merah <strong>Keluar</strong> di pojok kanan atas layar, atau tombol <strong>Keluar / Ganti Akun</strong> di bagian bawah sidebar kiri.</li>
+        <li>Kasir shift berikutnya wajib login menggunakan akunnya sendiri agar nama kasir pada struk dan rekap laporan per kasir tercatat tepat.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>2.2 Memilih Produk &amp; Menggunakan Keranjang Belanja</h3>
+  <div class="avoid-break">
+    <div class="step-row">
+      <div class="step-num">1</div>
+      <div><strong>Cari Produk dengan Cepat:</strong> Ketik <strong>Nama Kaos</strong>, <strong>Kode SKU</strong>, atau <strong>Warna</strong> pada kolom pencarian di kiri atas katalog kasir. Anda juga dapat menekan tombol filter ukuran (<code>Semua</code>, <code>S</code>, <code>M</code>, <code>L</code>, <code>XL</code>, <code>XXL</code>) untuk menyaring stok ukuran yang diminta pembeli.</div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">2</div>
+      <div><strong>Perhatikan Indikator Stok Kartu:</strong> Setiap kartu kaos menampilkan foto, ukuran, warna, harga jual normal, dan sisa <code>Stok Sistem</code>. Jika stok sudah <code>0 pcs</code>, tombol akan nonaktif bertuliskan <em>Stok Habis</em> sehingga kasir tidak salah menjual barang kosong.</div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">3</div>
+      <div><strong>Masukkan ke Keranjang:</strong> Klik tombol <strong>Tambah ke Keranjang</strong>. Jika pelanggan membeli lebih dari 1 pcs pada SKU yang sama, klik tombol <code>+</code> / <code>-</code> di kartu produk atau langsung di dalam panel keranjang.</div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">4</div>
+      <div><strong>Buka Menu Keranjang:</strong>
+        <ul>
+          <li><strong>Di Layar Laptop / PC:</strong> Panel <strong>Keranjang &amp; Pembayaran</strong> selalu tampil di sebelah kanan, atau klik tombol <strong>Keranjang</strong> di kanan atas untuk fokus ke panel checkout.</li>
+          <li><strong>Di Layar HP / Tablet:</strong> Akan muncul bar ringkasan mengambang di bagian bawah layar bertuliskan jumlah barang dan total rupiah — klik <strong>Buka Keranjang</strong> (atau tombol <strong>Keranjang</strong> di atas) untuk membuka halaman pembayaran.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>2.3 Mengatur "Harga Jadi / pcs" (Negosiasi), Diskon &amp; Pembayaran</h3>
+  <div class="avoid-break">
+    <div class="step-row">
+      <div class="step-num">5</div>
+      <div><strong>Mengubah Harga Jadi / pcs (Jika Ada Tawar-Menawar):</strong>
+        Di setiap baris item dalam keranjang terdapat kotak input <strong>Harga Jadi / pcs</strong>.
+        <ul>
+          <li>Jika pelanggan membeli dengan harga normal, biarkan saja terisi harga bawaan.</li>
+          <li>Jika ada harga kesepakatan (misal harga normal Rp 159.000 disepakati jadi Rp 145.000, atau harga grosir/khusus), klik kotak <strong>Harga Jadi / pcs</strong> lalu ketik <code>145000</code>.</li>
+          <li>Total subtotal item otomatis berubah. Bila salah ketik, klik tombol <strong>Reset</strong> di sampingnya untuk mengembalikan ke harga katalog normal.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">6</div>
+      <div><strong>Diskon Tambahan &amp; Catatan (Opsional):</strong>
+        Jika ingin memberi potongan dari total seluruh nota (misal promo belanja Rp 20.000), ketik di kolom <strong>Diskon Tambahan (Rp)</strong>. Anda juga bisa mengisi kolom <strong>Nama Kasir</strong> dan <strong>Catatan</strong> (misal: <em>"Bungkus plastik kado"</em>).
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">7</div>
+      <div><strong>Pilih Metode Pembayaran:</strong>
+        <ul>
+          <li><strong>Cash (Tunai):</strong> Klik tombol cepat <strong>Uang Pas</strong> jika uang pelanggan pas, atau klik pecahan cepat (<code>Rp 150.000</code>, <code>Rp 200.000</code>, <code>Rp 300.000</code>) maupun ketik manual nominal uang yang diterima. Sistem otomatis menghitung <strong>Kembalian</strong> (atau peringatan <em>Kurang Bayar</em> jika uang kurang).</li>
+          <li><strong>QRIS:</strong> Layar akan menampilkan kode QRIS resmi Sisstore lengkap dengan total tagihan agar pelanggan tinggal scan dari HP/e-wallet. Anda dapat mencatat nomor referensi/RRN dari struk EDC atau notifikasi QRIS pada kolom referensi.</li>
+          <li><strong>Transfer Bank:</strong> Pilih salah satu rekening bank resmi Sisstore yang tampil (BCA / Mandiri / BRI), cek mutasi masuk, lalu ketik nomor referensi atau nama pengirim transfer.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">8</div>
+      <div><strong>Selesaikan Penjualan &amp; Cetak Struk:</strong>
+        Klik tombol biru <strong>Selesaikan Penjualan</strong>. Stok sistem &amp; stok fisik otomatis berkurang, dan jendela <strong>Struk Pembayaran</strong> langsung terbuka.
+      </div>
+    </div>
+  </div>
+
+  <!-- HALAMAN 4: PANDUAN KASIR (STRUK & INPUT STOCK OPNAME) -->
+  <div class="page-break"></div>
+  <h3>2.4 Format Struk Pembayaran &amp; Riwayat Transaksi Kasir</h3>
+  <div class="grid-2 avoid-break">
+    <div class="card">
+      <strong>Cara Mencetak &amp; Mengatur Ukuran Struk</strong>
+      <ul>
+        <li>Pada popup struk setelah bayar, pilih lebar kertas printer Anda: <code>58mm</code>, <code>80mm</code>, atau <code>Standar</code>.</li>
+        <li>Klik <strong>Print Struk Sekarang</strong> untuk mencetak lewat printer thermal Bluetooth/USB atau menyimpan PDF.</li>
+        <li><strong>Struk Harga Jadi Bersih:</strong> Apabila item memakai <em>Harga Jadi</em> negosiasi, di struk pelanggan hanya tercantum harga final yang disepakati (mis. <code>1 x Rp 145.000</code>) tanpa menampilkan coretan harga awal sehingga tampilan struk tetap rapi bagi pembeli.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <strong>Melihat &amp; Cetak Ulang Nota Lama</strong>
+      <ul>
+        <li>Pada bagian atas halaman Kasir Penjualan, klik tab <strong>Riwayat Transaksi</strong>.</li>
+        <li>Anda dapat melihat seluruh daftar nomor invoice (<code>STR-...</code>), jam transaksi, metode pembayaran, nama kasir, serta total nilai penjualan.</li>
+        <li>Klik tombol <strong>Lihat Struk</strong> pada baris mana pun untuk membuka kembali struk tersebut dan mencetak ulang bila pelanggan meminta salinan.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>2.5 Panduan Lengkap Input Stock Opname untuk Kasir</h3>
+  <p>Di akhir shift atau jadwal pengecekan berkala, Kasir bertugas menghitung jumlah kaos fisik dan menginputnya ke sistem agar Owner dapat memeriksa kecocokan stok:</p>
+
+  <div class="avoid-break">
+    <div class="step-row">
+      <div class="step-num">1</div>
+      <div><strong>Hitung Barang Fisik Terlebih Dahulu:</strong> Hitung jumlah nyata setiap varian kaos (ukuran &amp; warna) yang ada di gantungan display dan lemari/gudang.</div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">2</div>
+      <div><strong>Buka Menu <code>Input Stock Opname</code>:</strong> Klik menu di sidebar kiri. Anda akan melihat ringkasan Total Unit Fisik vs Sistem, Status Selisih Lapangan, dan Persentase Akurasi.</div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">3</div>
+      <div><strong>Isi Kolom <code>Fisik</code>:</strong>
+        <ul>
+          <li>Lihat kolom <strong>Sistem</strong> (jumlah stok menurut catatan aplikasi).</li>
+          <li>Ketik jumlah nyata hasil hitungan Anda pada kotak angka di kolom <strong>Fisik</strong>.</li>
+          <li><em>Tips Cepat:</em> Jika hampir seluruh barang jumlahnya cocok dengan stok sistem, klik tombol <strong>Samakan Fisik</strong> di kanan atas terlebih dahulu, lalu ubah angka pada SKU yang selisih saja.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">4</div>
+      <div><strong>Cek Status Selisih &amp; Isi Kolom <code>Keterangan</code>:</strong>
+        <ul>
+          <li>Jika <strong>Fisik = Sistem</strong> → Kolom Selisih berwarna hijau bertuliskan <code>0 Sesuai</code> (keterangan boleh kosong).</li>
+          <li>Jika <strong>Fisik &lt; Sistem</strong> → Kolom Selisih merah bertuliskan mis. <code>-1 Kurang</code>. <strong>Wajib tulis penjelasan</strong> di kolom <em>Keterangan</em> (contoh: <em>"1 pcs di manekin depan"</em> atau <em>"rusak/noda tinta"</em>).</li>
+          <li>Jika <strong>Fisik &gt; Sistem</strong> → Kolom Selisih kuning bertuliskan mis. <code>+1 Lebih</code>. Catat temuannya di kolom <em>Keterangan</em> (contoh: <em>"1 pcs retur tukar size belum diinput"</em>).</li>
+        </ul>
+      </div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">5</div>
+      <div><strong>Filter &amp; Pastikan Semua Dicek:</strong> Gunakan tombol filter di atas tabel (<code>Semua</code>, <code>Ada Selisih</code>, <code>Stok Kurang</code>, <code>Stok Lebih</code>, <code>Sesuai</code>) untuk meninjau ulang item yang bermasalah sebelum laporan dikunci.</div>
+    </div>
+    <div class="step-row">
+      <div class="step-num">6</div>
+      <div><strong>Simpan Berita Acara:</strong> Klik tombol biru <strong>Simpan Berita Acara</strong> di pojok kanan atas → isi <strong>Judul / Periode Opname</strong> (mis. <em>"Opname Shift Malam - 20 Nov"</em>), <strong>Tanggal Opname</strong>, <strong>Petugas Audit</strong>, dan <strong>Ringkasan Temuan Umum</strong> → klik <strong>Simpan Laporan</strong>.</div>
+    </div>
+  </div>
+
+  <h3>2.6 Melihat Laporan Shift Kasir</h3>
+  <p>Kasir dapat membuka menu <strong>Laporan Shift Kasir</strong> di sidebar untuk melihat rekap omzet per metode pembayaran (Cash, QRIS, Transfer), memeriksa catatan transaksi per shift kasir, serta membuka arsip Berita Acara Stock Opname yang telah disimpan (tersedia tombol <strong>Cetak / PDF</strong> untuk laporan serah terima shift).</p>
+
+  <!-- HALAMAN 5: PANDUAN OWNER / ADMIN - DASHBOARD & KATALOG STOK AWAL -->
+  <div class="page-break"></div>
+  <span class="section-pill">Bagian B — Panduan Pengelolaan Owner / Admin</span>
+  <h2>3. Panduan Lengkap Penggunaan untuk Pemilik / Owner (Admin)</h2>
+
+  <h3>3.1 Memantau Bisnis Lewat Dashboard Pemilik</h3>
+  <p>Menu <strong>Dashboard Pemilik</strong> menjadi halaman pertama saat Owner login agar Anda dapat memantau kondisi kesehatan toko dalam hitungan detik:</p>
+  <ul>
+    <li><strong>4 Kartu Ringkasan Utama:</strong> Menampilkan <em>Total Penjualan</em> (nilai jual total), <em>Laba Kotor Penjualan</em>, <em>Kerugian Selisih Barang (HPP)</em> apabila ada stok kurang saat opname, serta <em>Laba Bersih Setelah Kerugian</em>.</li>
+    <li><strong>Komposisi Pembayaran:</strong> Melihat rincian pemasukan uang yang masuk via <strong>Cash</strong>, <strong>QRIS</strong>, dan <strong>Transfer Bank</strong> untuk memudahkan pencocokan laci kasir dan mutasi rekening.</li>
+    <li><strong>Valuasi Aset Persediaan Riil:</strong> Total nilai modal (HPP) dan estimasi nilai jual seluruh kaos yang masih ada di toko saat ini.</li>
+    <li><strong>Produk Terlaris &amp; Peringatan Stok:</strong> Daftar SKU terlaris penyumbang omzet terbesar serta daftar varian yang stoknya menipis (<code>≤ 5 pcs</code>) atau mengalami selisih opname agar segera ditindaklanjuti.</li>
+  </ul>
+
+  <h3>3.2 Mengelola Katalog Kaos, HPP, Stok Awal &amp; Restock</h3>
+  <p>Semua pengelolaan master barang dilakukan pada menu <strong>Katalog Kaos &amp; HPP</strong> (hanya bisa dibuka oleh akun Owner / Admin):</p>
+
+  <div class="callout callout-amber avoid-break">
+    <strong>Penting Tentang Stok Awal vs Restock:</strong><br />
+    • <strong>Stok Awal</strong> diisi hanya sekali saat produk pertama kali didaftarkan (atau saat mengatur ulang stok pembuka periode baru).<br />
+    • Jika ada <strong>kiriman barang tambahan</strong> di tengah berjalannya toko, gunakan tombol <strong>Restock</strong> — jangan menimpa kolom Stok Awal agar riwayat barang masuk tercatat rapi.
+  </div>
+
+  <div class="grid-2 avoid-break">
+    <div class="card-white">
+      <strong>A. Cara Menambah Varian Kaos Baru &amp; Stok Awal</strong>
+      <ol>
+        <li>Buka menu <strong>Katalog Kaos &amp; HPP</strong> → klik tombol biru <strong>+ Tambah Varian Kaos</strong>.</li>
+        <li>Isi <strong>Kode SKU</strong>, <strong>Bahan / Kategori</strong>, <strong>Nama Kaos</strong>, pilih <strong>Ukuran</strong> (<code>S</code>–<code>XXL</code>), dan ketik <strong>Warna</strong>.</li>
+        <li>Klik <strong>Upload Foto Produk</strong> untuk memilih foto dari HP/komputer (mendukung JPG/PNG/WEBP) atau pilih contoh foto studio.</li>
+        <li>Isi <strong>Harga Dasar / HPP (Rp)</strong> (harga modal) dan <strong>Harga Jual (Rp)</strong>.</li>
+        <li>Pada bagian angka stok:
+          <ul>
+            <li><strong>Stok Awal:</strong> Isi jumlah fisik barang yang siap dijual (contoh: <code>25</code>).</li>
+            <li><strong>Stok Masuk:</strong> Biarkan <code>0</code>.</li>
+            <li><strong>Terjual:</strong> Biarkan <code>0</code>.</li>
+            <li><strong>Stok Fisik:</strong> Samakan dengan Stok Awal (<code>25</code>).</li>
+          </ul>
+        </li>
+        <li>Klik <strong>Tambahkan ke Katalog</strong>.</li>
+      </ol>
+    </div>
+
+    <div class="card-white">
+      <strong>B. Mengubah Stok Awal Produk yang Sudah Ada</strong>
+      <ol>
+        <li>Untuk mengganti data contoh awal dengan stok riil toko Anda, klik ikon <strong>Pensil (Edit)</strong> di kolom Aksi baris produk tersebut.</li>
+        <li>Sesuaikan nama, ukuran, warna, <strong>HPP</strong>, <strong>Harga Jual</strong>, dan ubah angka <strong>Stok Awal</strong>.</li>
+        <li>Jika memulai pembukuan baru dari nol: atur <strong>Stok Masuk = 0</strong>, <strong>Terjual = 0</strong>, dan samakan <strong>Stok Fisik</strong> dengan <strong>Stok Awal</strong>.</li>
+        <li>Klik <strong>Simpan Perubahan</strong>. (Untuk menghapus item yang tidak dijual, klik ikon <strong>Tong Sampah</strong>).</li>
+      </ol>
+      <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #D6D6D0;">
+        <strong>C. Menambah Stok Barang Datang (Restock)</strong>
+        <ol>
+          <li>Cari produk yang baru datang barangnya, lalu klik tombol <strong>Restock</strong> pada baris tersebut.</li>
+          <li>Ketik <strong>Jumlah Tambahan Stok Masuk (pcs)</strong> lalu klik <strong>Tambah Stok</strong>. Kolom <em>Stok Masuk</em> &amp; <em>Stok Fisik</em> bertambah otomatis sekaligus.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- HALAMAN 6: PANDUAN OWNER - STOCK OPNAME AUDIT & LAPORAN LENGKAP -->
+  <div class="page-break"></div>
+  <h3>3.3 Audit Stock Opname dari Sisi Owner</h3>
+  <p>Saat Owner membuka menu <strong>Stock Opname</strong>, tampilan tabel otomatis diperluas untuk menampilkan analisis finansial per SKU:</p>
+  <ul>
+    <li><strong>Kolom HPP &amp; Margin:</strong> Memeriksa modal per potong dan margin keuntungan di setiap baris kaos.</li>
+    <li><strong>Nilai Penjualan &amp; Penyesuaian Harga Jadi:</strong> Menampilkan omzet riil tiap SKU lengkap dengan selisih dari harga negosiasi kasir (label oranye <code>Harga Jadi -Rp ...</code> atau <code>+Rp ...</code>) dan total laba kotornya.</li>
+    <li><strong>Kolom Kerugian Selisih:</strong> Bila ada SKU berstatus <em>Kurang</em>, Owner langsung melihat kerugian modal (merah, berdasarkan HPP) beserta potensi kehilangan omzet jualnya.</li>
+    <li><strong>Ekspor &amp; Arsip:</strong> Klik <strong>Unduh CSV</strong> untuk mengunduh tabel opname ke Excel, atau klik <strong>Simpan Berita Acara</strong> untuk mengunci hasil audit resmi ke riwayat laporan.</li>
+  </ul>
+
+  <h3>3.4 Menggunakan Pusat "Laporan Lengkap"</h3>
+  <p>Menu <strong>Laporan Lengkap</strong> menyediakan 3 tab analisis resmi yang dapat dicetak ke PDF (<strong>Cetak / PDF</strong>) atau diunduh ke Excel (<strong>Ekspor CSV</strong>):</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:28%;">Tab Laporan</th>
+        <th style="width:72%;">Isi &amp; Manfaat Analisis untuk Pemilik</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Laporan Penjualan &amp; Kasir</strong></td>
+        <td>Menampilkan ringkasan total omzet, perbandingan pembayaran Cash vs QRIS vs Transfer Bank, <strong>Rekapitulasi Per Kasir / Operator Shift</strong> (siapa kasir dengan omzet tertinggi &amp; jumlah transaksi), peringkat penjualan seluruh varian kaos, dan tabel riwayat invoice lengkap dengan tombol cetak ulang struk.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Laporan Stock Opname</strong></td>
+        <td>Menampilkan hasil audit opname lengkap (persentase akurasi, total kurang/lebih, kerugian HPP, laba bersih). Di bagian atas terdapat pemilih <strong>Arsip</strong>: pilih <strong>Data Live</strong> untuk kondisi stok saat ini, atau klik berita acara tanggal sebelumnya untuk melihat rekaman historisnya. Tombol <strong>Arsipkan Kondisi</strong> dapat dipakai untuk menyimpan snapshot kondisi stok seketika.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Laporan Laba Rugi &amp; Aset</strong></td>
+        <td>Menampilkan laporan rugi laba terstruktur ala pembukuan retail: <em>Pendapatan Kotor Penjualan</em>, dikurangi <em>Harga Pokok Penjualan (HPP)</em> menjadi <em>Laba Kotor</em>, lalu dikurangi <em>Beban Kerugian Selisih Opname</em> menjadi <strong>Laba Bersih Toko</strong>, disertai laporan nilai valuasi aset persediaan akhir yang tersimpan di rak.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>3.5 Pengaturan Profil Toko, QRIS, Rekening Bank &amp; Manajemen User</h3>
+  <p>Melalui menu <strong>Sheets, Drive &amp; Akun</strong>, Pemilik dapat mengatur identitas toko serta mengelola seluruh akses karyawan:</p>
+
+  <div class="grid-2 avoid-break">
+    <div class="card">
+      <strong>1. Identitas Toko, Struk, QRIS &amp; Rekening</strong>
+      <ul>
+        <li><strong>Profil &amp; Logo Toko:</strong> Ubah Nama Toko, Tagline, Alamat lengkap, Nomor Telepon, dan Catatan Footer Struk. Klik <strong>Upload Logo Toko</strong> untuk memperbarui logo yang tampil di login, sidebar, dan bagian atas struk.</li>
+        <li><strong>Opsi Auto-Print Struk:</strong> Centang/aktifkan bila ingin dialog cetak struk otomatis muncul setiap selesai transaksi.</li>
+        <li><strong>Gambar QRIS Resmi:</strong> Upload gambar kode QRIS resmi toko (beserta Nama Merchant &amp; NMID) agar langsung tampil di layar kasir saat pelanggan memilih pembayaran QRIS.</li>
+        <li><strong>Daftar Rekening Transfer Bank:</strong> Tambah atau hapus rekening bank toko (mis. BCA, Mandiri, BRI) yang tampil sebagai pilihan di kasir.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <strong>2. Manajemen User &amp; Kata Sandi (Kasir &amp; Admin)</strong>
+      <ul>
+        <li><strong>Tambah User Baru:</strong> Klik <strong>Tambah User Baru</strong> → isi <em>Nama Tampilan</em> (muncul di struk &amp; laporan), <em>Username Login</em> unik, pilih <em>Peran</em> (<code>Operator / Kasir</code> atau <code>Admin / Pemilik</code>), isi <em>Label Shift</em>, serta <em>Kata Sandi</em> + konfirmasi.</li>
+        <li><strong>Edit Data User:</strong> Klik tombol <strong>Edit</strong> pada kartu user untuk mengubah nama, shift, username, atau peran akun.</li>
+        <li><strong>Update Password:</strong> Klik tombol <strong>Update Password</strong> pada kartu user mana saja untuk mengganti sandi lama dengan kata sandi baru (minimal 4 karakter).</li>
+        <li><strong>Hapus Akun:</strong> Hapus akun kasir yang sudah resign. Demi keamanan, sistem otomatis mencegah penghapusan akun yang sedang dipakai login maupun akun Admin terakhir yang tersisa.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- HALAMAN 7: RINGKASAN CHECKLIST OPERASIONAL HARIAN & MINGGUAN -->
+  <div class="page-break"></div>
+  <h2>4. Ringkasan Alur Kerja Harian &amp; Mingguan Toko Sisstore</h2>
+  <p>Berikut panduan ringkas urutan kerja standar yang dapat dicetak dan ditempel di area kasir agar operasional toko berjalan konsisten setiap hari:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22%;">Waktu / Jadwal</th>
+        <th style="width:39%;">Tugas Kasir / Operator</th>
+        <th style="width:39%;">Tugas Owner / Pemilik (Admin)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Buka Toko<br />(10.00 WIB)</strong></td>
+        <td>
+          <ul>
+            <li>Login menggunakan akun Kasir masing-masing.</li>
+            <li>Pastikan printer struk &amp; laci uang tunai siap.</li>
+            <li>Cek ketersediaan ukuran populer lewat filter di Kasir Penjualan.</li>
+          </ul>
+        </td>
+        <td>
+          <ul>
+            <li>Jika ada barang baru/kulakan datang, input lewat <strong>Katalog Kaos &amp; HPP → Restock</strong> atau <strong>+ Tambah Varian Kaos</strong>.</li>
+            <li>Pastikan harga jual &amp; foto katalog terbaru sudah sesuai.</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Jam Operasional<br />(10.00–21.00 WIB)</strong></td>
+        <td>
+          <ul>
+            <li>Layani transaksi lewat keranjang kasir.</li>
+            <li>Jika pembeli menawar, gunakan kolom <strong>Harga Jadi / pcs</strong> sesuai batas kebijakan toko.</li>
+            <li>Pastikan metode bayar (Cash / QRIS / Transfer) cocok sebelum klik <strong>Selesaikan Penjualan</strong>.</li>
+            <li>Berikan struk cetak kepada pelanggan.</li>
+          </ul>
+        </td>
+        <td>
+          <ul>
+            <li>Pantau omzet berjalan, komposisi pembayaran, dan stok menipis lewat <strong>Dashboard Pemilik</strong>.</li>
+            <li>Sesuaikan akun user atau rekening/QRIS toko bila diperlukan.</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Tutup Shift / Tutup Toko<br />(21.00 WIB)</strong></td>
+        <td>
+          <ul>
+            <li>Buka menu <strong>Input Stock Opname</strong>, hitung fisik barang display/rak bila jadwal opname harian.</li>
+            <li>Cocokkan uang tunai di laci dengan ringkasan Cash di <strong>Laporan Shift Kasir</strong>.</li>
+            <li>Klik <strong>Keluar / Ganti Akun</strong> saat pulang atau berganti shift.</li>
+          </ul>
+        </td>
+        <td>
+          <ul>
+            <li>Tinjau <strong>Laporan Penjualan &amp; Kasir</strong> serta <strong>Laporan Laba Rugi</strong>.</li>
+            <li>Cek kolom <em>Selisih</em> &amp; <em>Keterangan</em> hasil Stock Opname karyawan.</li>
+            <li>Unduh <strong>Ekspor CSV</strong> atau <strong>Cetak / PDF</strong> sebagai arsip pembukuan mingguan/bulanan.</li>
+          </ul>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-green avoid-break" style="margin-top:14px;">
+    <strong>Tips Praktis Untuk Kasir &amp; Pemilik:</strong><br />
+    1. Selalu gunakan fitur <strong>Tambah ke Keranjang → Harga Jadi / pcs</strong> jika ada harga negosiasi agar nilai omzet, laba kotor, dan sisa stok terhitung 100% akurat tanpa perlu hitung ulang manual.<br />
+    2. Jangan mencampuradukkan penyesuaian stok datang dengan Stock Opname: setiap barang datang wajib dicatat di <strong>Katalog Kaos &amp; HPP → Restock</strong>, sedangkan penghitungan rak dicatat di <strong>Stock Opname</strong>.<br />
+    3. Anda dapat mengunduh ulang buku panduan PDF ini kapan saja melalui tombol <strong>Unduh Tutorial PDF</strong> di halaman Login maupun Sidebar aplikasi.
+  </div>
+
+</body>
+</html>

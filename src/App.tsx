@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { CloudUpload, LogOut, Menu, ShieldCheck, UserCheck } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CloudUpload, LogOut, Menu, Moon, RefreshCw, ShieldCheck, Sun, UserCheck } from 'lucide-react';
 import {
   INITIAL_ITEMS,
   INITIAL_REPORTS,
@@ -8,6 +8,7 @@ import {
   INITIAL_USERS,
 } from './data/seedData';
 import {
+  computeSyncSignature,
   type DriveMediaCategory,
   isValidAppsScriptUrl,
   pingAppsScript,
@@ -42,6 +43,7 @@ const STORAGE_KEYS = {
   reports: 'sistor_reports_v1',
   settings: 'sistor_settings_v1',
   session: 'sistor_session_v1',
+  theme: 'sisstore_theme_v1',
 };
 
 function readStored<T>(key: string, fallback: T): T {
@@ -161,12 +163,54 @@ export default function App() {
     readStored(STORAGE_KEYS.reports, INITIAL_REPORTS)
   );
 
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEYS.theme);
+      return saved === 'dark' ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+    root.style.colorScheme = theme;
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.theme, theme);
+    } catch {
+      // Ignore storage failures
+    }
+  }, [theme]);
+
+  const handleToggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
   const [isSyncing, setIsSyncing] = useState(false);
+  const [autoSyncStatus, setAutoSyncStatus] = useState<
+    'idle' | 'syncing' | 'synced' | 'error'
+  >('idle');
   const [headerPushConfirmOpen, setHeaderPushConfirmOpen] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<{
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+
+  const latestSyncSnapshotRef = useRef({
+    items,
+    transactions,
+    reports,
+    settings,
+  });
+  latestSyncSnapshotRef.current = { items, transactions, reports, settings };
+
+  const lastSyncedSigRef = useRef<string>(
+    computeSyncSignature(items, transactions, reports, settings)
+  );
+  const syncInFlightRef = useRef(false);
+  const syncQueuedRef = useRef(false);
+  const syncTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.items, JSON.stringify(items));
@@ -202,6 +246,175 @@ export default function App() {
   }, [currentUser]);
 
   const isAppsScriptConnected = isValidAppsScriptUrl(settings.appsScriptUrl);
+
+  const runSyncToSheets = useCallback(async (options?: { silent?: boolean }) => {
+    const snap = latestSyncSnapshotRef.current;
+    if (!isValidAppsScriptUrl(snap.settings.appsScriptUrl)) return;
+
+    if (syncInFlightRef.current) {
+      syncQueuedRef.current = true;
+      return;
+    }
+
+    syncInFlightRef.current = true;
+    const silent = Boolean(options?.silent);
+    if (silent) {
+      setAutoSyncStatus('syncing');
+    } else {
+      setIsSyncing(true);
+      setSyncFeedback(null);
+    }
+
+    try {
+      const nextSettings = { ...snap.settings };
+      const folderName = nextSettings.driveFolderName || 'Sisstore_Media_Drive';
+      let mediaUploaded = false;
+
+      if (nextSettings.logoUrl?.startsWith('data:')) {
+        const res = await uploadImageToDrive(nextSettings.appsScriptUrl, {
+          category: 'logo',
+          fileName: `logo-${nextSettings.storeName.toLowerCase()}`,
+          dataUrl: nextSettings.logoUrl,
+          folderName,
+        });
+        nextSettings.logoUrl = res.directUrl;
+        nextSettings.driveFolderUrl = res.driveFolderUrl;
+        mediaUploaded = true;
+      }
+
+      if (nextSettings.qrisImageUrl?.startsWith('data:')) {
+        const res = await uploadImageToDrive(nextSettings.appsScriptUrl, {
+          category: 'qris',
+          fileName: `qris-${nextSettings.storeName.toLowerCase()}`,
+          dataUrl: nextSettings.qrisImageUrl,
+          folderName,
+        });
+        nextSettings.qrisImageUrl = res.directUrl;
+        nextSettings.driveFolderUrl = res.driveFolderUrl;
+        mediaUploaded = true;
+      }
+
+      const nextItems: TShirtItem[] = [];
+      let anyItemMediaUploaded = false;
+      for (const item of snap.items) {
+        if (!item.imageUrl?.startsWith('data:')) {
+          nextItems.push(item);
+          continue;
+        }
+        const res = await uploadImageToDrive(nextSettings.appsScriptUrl, {
+          category: 'produk',
+          fileName: `${item.sku}-${item.ukuran}`,
+          dataUrl: item.imageUrl,
+          folderName,
+        });
+        nextSettings.driveFolderUrl = res.driveFolderUrl;
+        nextItems.push({ ...item, imageUrl: res.directUrl });
+        anyItemMediaUploaded = true;
+      }
+
+      if (anyItemMediaUploaded) {
+        setItems(nextItems);
+      }
+
+      const result = await syncAllViaAppsScript(
+        nextSettings.appsScriptUrl,
+        nextItems,
+        snap.transactions,
+        snap.reports,
+        nextSettings
+      );
+
+      lastSyncedSigRef.current = computeSyncSignature(
+        nextItems,
+        snap.transactions,
+        snap.reports,
+        nextSettings
+      );
+
+      setSettings((prev) => ({
+        ...prev,
+        ...(mediaUploaded
+          ? {
+              logoUrl: nextSettings.logoUrl,
+              qrisImageUrl: nextSettings.qrisImageUrl,
+            }
+          : {}),
+        spreadsheetId: result.spreadsheetId,
+        spreadsheetTitle: result.spreadsheetTitle,
+        driveFolderUrl: result.driveFolderUrl || prev.driveFolderUrl,
+        lastSyncedAt: result.syncedAt || new Date().toISOString(),
+      }));
+
+      setAutoSyncStatus('synced');
+      if (!silent) {
+        setSyncFeedback({
+          type: 'success',
+          message: `Seluruh data 7 tab Spreadsheet & gambar Google Drive berhasil disinkronkan ke "${result.spreadsheetTitle}".`,
+        });
+      }
+    } catch (err: any) {
+      setAutoSyncStatus('error');
+      const errMsg =
+        err?.message || 'Gagal menyinkronkan data ke Google Sheets & Drive.';
+      setSyncFeedback({
+        type: 'error',
+        message: silent
+          ? `Sinkronisasi otomatis tertunda: ${errMsg}`
+          : errMsg,
+      });
+    } finally {
+      syncInFlightRef.current = false;
+      if (!silent) {
+        setIsSyncing(false);
+      }
+      if (syncQueuedRef.current) {
+        syncQueuedRef.current = false;
+        const latest = latestSyncSnapshotRef.current;
+        const latestSig = computeSyncSignature(
+          latest.items,
+          latest.transactions,
+          latest.reports,
+          latest.settings
+        );
+        if (latestSig !== lastSyncedSigRef.current) {
+          void runSyncToSheets({ silent: true });
+        }
+      }
+    }
+  }, []);
+
+  // Real-time background auto-sync whenever business data changes while Apps Script is connected
+  useEffect(() => {
+    if (!isAppsScriptConnected) {
+      setAutoSyncStatus('idle');
+      if (syncTimerRef.current !== null) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+      return;
+    }
+
+    const currentSig = computeSyncSignature(items, transactions, reports, settings);
+    if (currentSig === lastSyncedSigRef.current) {
+      return;
+    }
+
+    if (syncTimerRef.current !== null) {
+      window.clearTimeout(syncTimerRef.current);
+    }
+
+    syncTimerRef.current = window.setTimeout(() => {
+      syncTimerRef.current = null;
+      void runSyncToSheets({ silent: true });
+    }, 700);
+
+    return () => {
+      if (syncTimerRef.current !== null) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+    };
+  }, [items, transactions, reports, settings, isAppsScriptConnected, runSyncToSheets]);
 
   const summary = useMemo(
     () => calculateOpnameSummary(items, transactions),
@@ -247,6 +460,8 @@ export default function App() {
         storeAddress={settings.storeAddress}
         logoUrl={settings.logoUrl}
         users={settings.users}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
         onLoginSuccess={handleLoginSuccess}
       />
     );
@@ -422,17 +637,26 @@ export default function App() {
     setSyncFeedback(null);
     try {
       const info = await pingAppsScript(cleanUrl, cleanFolder);
-      setSettings((prev) => ({
-        ...prev,
+      const nextSettings: StoreSettings = {
+        ...settings,
         appsScriptUrl: cleanUrl,
         driveFolderName: info.driveFolderName || cleanFolder,
         driveFolderUrl: info.driveFolderUrl,
         spreadsheetId: info.spreadsheetId,
         spreadsheetTitle: info.spreadsheetTitle,
-      }));
+      };
+      // Prevent immediate overwrite on first connect so Admin can choose Push or Pull safely
+      lastSyncedSigRef.current = computeSyncSignature(
+        items,
+        transactions,
+        reports,
+        nextSettings
+      );
+      setSettings(nextSettings);
+      setAutoSyncStatus('synced');
       setSyncFeedback({
         type: 'success',
-        message: `Berhasil terhubung ke "${info.spreadsheetTitle}" dan folder Google Drive "${info.driveFolderName}".`,
+        message: `Berhasil terhubung ke "${info.spreadsheetTitle}" dan folder Google Drive "${info.driveFolderName}". Auto-sync real-time aktif untuk perubahan data berikutnya.`,
       });
     } catch (err: any) {
       setSyncFeedback({
@@ -454,6 +678,7 @@ export default function App() {
       spreadsheetId: '',
       spreadsheetTitle: '',
     }));
+    setAutoSyncStatus('idle');
     setSyncFeedback({
       type: 'success',
       message: 'Koneksi Apps Script diputuskan. Aplikasi tetap berjalan dalam mode lokal.',
@@ -461,82 +686,7 @@ export default function App() {
   };
 
   const handlePushToSheets = async () => {
-    if (!isAppsScriptConnected) return;
-
-    setIsSyncing(true);
-    setSyncFeedback(null);
-    try {
-      let nextSettings = { ...settings };
-      const folderName = settings.driveFolderName || 'Sisstore_Media_Drive';
-
-      if (nextSettings.logoUrl?.startsWith('data:')) {
-        const res = await uploadImageToDrive(settings.appsScriptUrl, {
-          category: 'logo',
-          fileName: `logo-${nextSettings.storeName.toLowerCase()}`,
-          dataUrl: nextSettings.logoUrl,
-          folderName,
-        });
-        nextSettings.logoUrl = res.directUrl;
-        nextSettings.driveFolderUrl = res.driveFolderUrl;
-      }
-
-      if (nextSettings.qrisImageUrl?.startsWith('data:')) {
-        const res = await uploadImageToDrive(settings.appsScriptUrl, {
-          category: 'qris',
-          fileName: `qris-${nextSettings.storeName.toLowerCase()}`,
-          dataUrl: nextSettings.qrisImageUrl,
-          folderName,
-        });
-        nextSettings.qrisImageUrl = res.directUrl;
-        nextSettings.driveFolderUrl = res.driveFolderUrl;
-      }
-
-      const nextItems = await Promise.all(
-        items.map(async (item) => {
-          if (!item.imageUrl?.startsWith('data:')) return item;
-          const res = await uploadImageToDrive(settings.appsScriptUrl, {
-            category: 'produk',
-            fileName: `${item.sku}-${item.ukuran}`,
-            dataUrl: item.imageUrl,
-            folderName,
-          });
-          nextSettings.driveFolderUrl = res.driveFolderUrl;
-          return { ...item, imageUrl: res.directUrl };
-        })
-      );
-
-      setItems(nextItems);
-
-      const result = await syncAllViaAppsScript(
-        settings.appsScriptUrl,
-        nextItems,
-        transactions,
-        reports,
-        nextSettings
-      );
-
-      setSettings((prev) => ({
-        ...prev,
-        ...nextSettings,
-        spreadsheetId: result.spreadsheetId,
-        spreadsheetTitle: result.spreadsheetTitle,
-        driveFolderUrl: result.driveFolderUrl || prev.driveFolderUrl,
-        lastSyncedAt: result.syncedAt || new Date().toISOString(),
-      }));
-
-      setSyncFeedback({
-        type: 'success',
-        message: `Seluruh data 7 tab Spreadsheet & gambar Google Drive berhasil disinkronkan ke "${result.spreadsheetTitle}".`,
-      });
-    } catch (err: any) {
-      setSyncFeedback({
-        type: 'error',
-        message:
-          err?.message || 'Gagal menyinkronkan data ke Google Sheets & Drive.',
-      });
-    } finally {
-      setIsSyncing(false);
-    }
+    await runSyncToSheets({ silent: false });
   };
 
   const handlePullFromSheets = async () => {
@@ -546,22 +696,42 @@ export default function App() {
     setSyncFeedback(null);
     try {
       const pulled = await pullAllViaAppsScript(settings.appsScriptUrl);
+      const nextItems = pulled.items.length > 0 ? pulled.items : items;
+      const nextTransactions =
+        pulled.transactions.length > 0 ? pulled.transactions : transactions;
+      const nextReports = pulled.reports.length > 0 ? pulled.reports : reports;
+      const nextSettings: StoreSettings = {
+        ...settings,
+        ...pulled.settingsPatch,
+        spreadsheetId: pulled.spreadsheetId,
+        spreadsheetTitle: pulled.spreadsheetTitle,
+      };
+
+      // Mark pulled snapshot as synced so auto-sync doesn't immediately bounce back
+      lastSyncedSigRef.current = computeSyncSignature(
+        nextItems,
+        nextTransactions,
+        nextReports,
+        nextSettings
+      );
+
       if (pulled.items.length > 0) {
-        setItems(pulled.items);
+        setItems(nextItems);
       }
-      if (Object.keys(pulled.settingsPatch).length > 0) {
-        setSettings((prev) => ({
-          ...prev,
-          ...pulled.settingsPatch,
-          spreadsheetId: pulled.spreadsheetId,
-          spreadsheetTitle: pulled.spreadsheetTitle,
-        }));
+      if (pulled.transactions.length > 0) {
+        setTransactions(nextTransactions);
       }
+      if (pulled.reports.length > 0) {
+        setReports(nextReports);
+      }
+      setSettings(nextSettings);
+      setAutoSyncStatus('synced');
+
       setSyncFeedback({
         type: 'success',
         message:
           pulled.items.length > 0
-            ? `Berhasil memuat ${pulled.items.length} varian kaos & pengaturan dari "${pulled.spreadsheetTitle}".`
+            ? `Berhasil memuat ${pulled.items.length} varian produk, ${pulled.transactions.length} transaksi, ${pulled.reports.length} laporan, & pengaturan dari "${pulled.spreadsheetTitle}".`
             : 'Terhubung ke Spreadsheet, namun tab Katalog_Kaos masih kosong.',
       });
     } catch (err: any) {
@@ -593,6 +763,8 @@ export default function App() {
         logoUrl={settings.logoUrl}
         isAppsScriptConnected={isAppsScriptConnected}
         spreadsheetLinked={Boolean(settings.spreadsheetId)}
+        autoSyncStatus={autoSyncStatus}
+        lastSyncedAt={settings.lastSyncedAt}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
       />
@@ -639,6 +811,24 @@ export default function App() {
               </span>
             </div>
 
+            {isAppsScriptConnected && !isAdmin && (
+              <div className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-[#15803D]">
+                <RefreshCw
+                  className={`h-3 w-3 ${
+                    autoSyncStatus === 'syncing' ? 'animate-spin' : ''
+                  }`}
+                  aria-hidden="true"
+                />
+                <span>
+                  {autoSyncStatus === 'syncing'
+                    ? 'Menyimpan ke Sheets...'
+                    : autoSyncStatus === 'error'
+                    ? 'Auto-Sync Tertunda'
+                    : 'Sheets Live Sync'}
+                </span>
+              </div>
+            )}
+
             {isAdmin &&
               (isAppsScriptConnected ? (
                 <button
@@ -647,8 +837,14 @@ export default function App() {
                   onClick={() => setHeaderPushConfirmOpen(true)}
                   className="inline-flex items-center gap-2 whitespace-nowrap shrink-0 rounded-lg bg-[#1E3A8A] px-3 py-2 text-xs font-semibold text-white hover:bg-[#172554] disabled:opacity-60"
                 >
-                  <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" />
-                  {isSyncing ? 'Menyinkronkan...' : 'Sinkron ke Sheets'}
+                  {autoSyncStatus === 'syncing' || isSyncing ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  {isSyncing || autoSyncStatus === 'syncing'
+                    ? 'Menyinkronkan...'
+                    : 'Sinkron ke Sheets'}
                 </button>
               ) : (
                 <button
@@ -661,6 +857,34 @@ export default function App() {
                   <span className="hidden sm:inline">Sheets &amp; Drive</span>
                 </button>
               ))}
+
+            <button
+              type="button"
+              onClick={handleToggleTheme}
+              aria-label={
+                theme === 'dark'
+                  ? 'Aktifkan Mode Terang'
+                  : 'Aktifkan Mode Gelap'
+              }
+              title={
+                theme === 'dark'
+                  ? 'Aktifkan Mode Terang'
+                  : 'Aktifkan Mode Gelap'
+              }
+              className="inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 rounded-lg border border-[#E5E5E0] bg-white px-2.5 py-2 text-xs font-semibold text-[#141413] hover:bg-[#F3F3F0]"
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="h-3.5 w-3.5 text-[#B45309]" aria-hidden="true" />
+                  <span className="hidden sm:inline">Mode Terang</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="h-3.5 w-3.5 text-[#1E3A8A]" aria-hidden="true" />
+                  <span className="hidden sm:inline">Mode Gelap</span>
+                </>
+              )}
+            </button>
 
             <button
               type="button"

@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  BookOpen,
   ClipboardCheck,
   Database,
   FileSpreadsheet,
@@ -31,6 +32,8 @@ interface SidebarProps {
   logoUrl?: string;
   isAppsScriptConnected: boolean;
   spreadsheetLinked: boolean;
+  autoSyncStatus?: 'idle' | 'syncing' | 'synced' | 'error';
+  lastSyncedAt?: string | null;
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }
@@ -91,6 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   logoUrl,
   isAppsScriptConnected,
   spreadsheetLinked,
+  autoSyncStatus = 'idle',
+  lastSyncedAt,
   mobileOpen,
   onCloseMobile,
 }) => {
@@ -170,19 +175,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      <div className="border-t border-[#E5E5E0] px-4 py-4 space-y-3">
-        {isAdmin && (
-          <div className="rounded-lg border border-[#E5E5E0] bg-[#F7F7F5] px-3 py-2.5">
-            <div className="text-[11px] font-semibold text-[#3F3F3B]">
-              Database Sheets &amp; Drive
-            </div>
-            <div className="mt-0.5 text-[11px] text-[#6B6B65]">
-              {isAppsScriptConnected && spreadsheetLinked
-                ? 'Spreadsheet & Drive aktif'
-                : isAppsScriptConnected
-                ? 'Apps Script siap sinkron'
-                : 'Penyimpanan lokal aktif'}
-            </div>
+      <div className="border-t border-[#E5E5E0] px-4 py-4 space-y-2.5">
+        <a
+          href="/Panduan-Lengkap-Sisstore.pdf"
+          download="Panduan-Lengkap-Sisstore.pdf"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#E5E5E0] bg-[#F7F7F5] px-3 py-2 text-xs font-semibold text-[#141413] transition-colors hover:bg-[#EBEBE6]"
+        >
+          <BookOpen className="h-3.5 w-3.5 text-[#1E3A8A]" aria-hidden="true" />
+          Unduh Tutorial PDF
+        </a>
+
+        <div className="rounded-lg border border-[#E5E5E0] bg-[#F7F7F5] px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-[#3F3F3B]">
+            <span>Database Sheets &amp; Drive</span>
+            {isAppsScriptConnected && (
+              <span
+                className={`font-mono text-[10px] ${
+                  autoSyncStatus === 'error'
+                    ? 'text-[#B91C1C]'
+                    : autoSyncStatus === 'syncing'
+                    ? 'text-[#1E3A8A]'
+                    : 'text-[#15803D]'
+                }`}
+              >
+                {autoSyncStatus === 'syncing'
+                  ? 'Sync...'
+                  : autoSyncStatus === 'error'
+                  ? 'Tertunda'
+                  : 'Live'}
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 text-[11px] text-[#6B6B65]">
+            {isAppsScriptConnected
+              ? autoSyncStatus === 'syncing'
+                ? 'Menyinkronkan ke Sheets...'
+                : lastSyncedAt
+                ? `Auto-Sync Aktif · ${new Date(lastSyncedAt).toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`
+                : spreadsheetLinked
+                ? 'Auto-Sync Real-Time Aktif'
+                : 'Apps Script siap sinkron'
+              : 'Penyimpanan lokal aktif'}
+          </div>
+          {isAdmin && (
             <button
               type="button"
               onClick={() => {
@@ -193,8 +231,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               Kelola Koneksi Sheets →
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Active User Session Card & Logout */}
         <div className="rounded-lg border border-[#E5E5E0] bg-white p-3">

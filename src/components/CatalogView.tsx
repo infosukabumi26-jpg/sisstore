@@ -66,7 +66,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
     ukuran: 'L' as TShirtSize,
     warna: '',
     hpp: '55000',
-    hargaJual: '129000',
+    hargaJual: '',
     stokAwal: '20',
     stokMasuk: '0',
     terjual: '0',
@@ -130,7 +130,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
       ukuran: 'L',
       warna: '',
       hpp: '55000',
-      hargaJual: '129000',
+      hargaJual: '',
       stokAwal: '20',
       stokMasuk: '0',
       terjual: '0',
@@ -151,7 +151,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
       ukuran: item.ukuran,
       warna: item.warna,
       hpp: String(item.hpp),
-      hargaJual: String(item.hargaJual),
+      hargaJual: item.hargaJual > 0 ? String(item.hargaJual) : '',
       stokAwal: String(item.stokAwal),
       stokMasuk: String(item.stokMasuk),
       terjual: String(item.terjual),
@@ -169,7 +169,8 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
       return;
     }
     const hpp = Number(formState.hpp);
-    const hargaJual = Number(formState.hargaJual);
+    const hargaJual =
+      formState.hargaJual.trim() === '' ? 0 : Number(formState.hargaJual);
     const stokAwal = Number(formState.stokAwal);
     const stokMasuk = Number(formState.stokMasuk);
     const terjual = Number(formState.terjual);
@@ -332,10 +333,22 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                       {formatRupiah(item.hpp)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-semibold tabular-nums text-[#141413]">
-                      {formatRupiah(item.hargaJual)}
+                      {item.hargaJual > 0 ? (
+                        formatRupiah(item.hargaJual)
+                      ) : (
+                        <span className="font-sans text-xs font-medium text-[#6B6B65]">
+                          Manual di Kasir
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums text-[#15803D]">
-                      {formatRupiah(m.marginPerPcs)} ({m.marginPersen.toFixed(0)}%)
+                      {item.hargaJual > 0 ? (
+                        <>
+                          {formatRupiah(m.marginPerPcs)} ({m.marginPersen.toFixed(0)}%)
+                        </>
+                      ) : (
+                        <span className="font-sans text-xs text-[#6B6B65]">—</span>
+                      )}
                     </td>
                     <td
                       className={`px-4 py-3 text-right font-mono font-semibold tabular-nums ${
@@ -626,19 +639,22 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                     htmlFor="tee-harga"
                     className="block text-xs font-semibold text-[#3F3F3B]"
                   >
-                    Harga Jual (Rp)
+                    Harga Jual (Rp) — Opsional
                   </label>
                   <input
                     id="tee-harga"
                     type="number"
                     min={0}
-                    required
+                    placeholder="Kosongkan jika manual saat bayar"
                     value={formState.hargaJual}
                     onChange={(e) =>
                       setFormState((s) => ({ ...s, hargaJual: e.target.value }))
                     }
                     className="mt-1 w-full rounded-lg border border-[#E5E5E0] px-3 py-2 font-mono text-sm focus:border-[#1E3A8A] focus:outline-none"
                   />
+                  <p className="mt-1 text-[11px] text-[#6B6B65]">
+                    Boleh dikosongkan bila Harga Jadi diinput manual saat checkout.
+                  </p>
                 </div>
               </div>
 

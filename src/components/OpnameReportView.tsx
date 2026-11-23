@@ -458,7 +458,6 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                     <tr className="border-b border-[#E5E5E0] bg-[#F7F7F5] font-semibold text-[#52524E]">
                       <th className="px-3.5 py-2.5">SKU &amp; Kaos</th>
                       {isAdmin && <th className="px-3 py-2.5 text-right">HPP</th>}
-                      <th className="px-3 py-2.5 text-right">Harga Jual</th>
                       <th className="px-3 py-2.5 text-right">Sistem</th>
                       <th className="px-3 py-2.5 text-right">Fisik</th>
                       <th className="px-3 py-2.5 text-right">Selisih</th>
@@ -473,7 +472,7 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                       activeArchive.discrepantItems.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={isAdmin ? 8 : 6}
+                            colSpan={isAdmin ? 7 : 5}
                             className="px-4 py-8 text-center text-[#6B6B65]"
                           >
                             Tidak ada selisih barang pada arsip opname ini.
@@ -495,9 +494,6 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                                 {formatRupiah(row.hpp)}
                               </td>
                             )}
-                            <td className="px-3 py-2.5 text-right font-mono tabular-nums">
-                              {formatRupiah(row.hargaJual)}
-                            </td>
                             <td className="px-3 py-2.5 text-right font-mono tabular-nums">
                               {row.stokSistem}
                             </td>
@@ -533,7 +529,7 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                     ) : liveAuditRows.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={isAdmin ? 8 : 6}
+                          colSpan={isAdmin ? 7 : 5}
                           className="px-4 py-8 text-center text-[#6B6B65]"
                         >
                           Semua stok sesuai sistem dan belum ada catatan selisih.
@@ -555,9 +551,6 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                               {formatRupiah(item.hpp)}
                             </td>
                           )}
-                          <td className="px-3 py-2.5 text-right font-mono tabular-nums">
-                            {formatRupiah(item.hargaJual)}
-                          </td>
                           <td className="px-3 py-2.5 text-right font-mono tabular-nums">
                             {metrics.stokSistem}
                           </td>
@@ -787,7 +780,13 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                           </div>
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono tabular-nums">
-                          {formatRupiah(p.hargaJual)}
+                          {p.hargaJual > 0 ? (
+                            formatRupiah(p.hargaJual)
+                          ) : (
+                            <span className="font-sans text-[11px] italic text-[#6B6B65]">
+                              Manual di Kasir
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono font-semibold tabular-nums">
                           {p.qtyTerjual} pcs
@@ -833,30 +832,41 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5E5E0]">
-                    {transactions.map((tx) => (
-                      <tr key={tx.id}>
-                        <td className="px-3.5 py-2.5 font-mono font-semibold text-[#141413]">
-                          {tx.invoiceNo}
-                        </td>
-                        <td className="px-3 py-2.5 font-mono text-[#52524E]">
-                          {tx.tanggal} {tx.waktu}
-                        </td>
-                        <td className="px-3 py-2.5 text-[#3F3F3B]">{tx.kasir}</td>
-                        <td className="px-3 py-2.5">
-                          <span className="font-semibold text-[#141413]">
-                            {tx.metodePembayaran === 'TRANSFER_BANK'
-                              ? 'Transfer Bank'
-                              : tx.metodePembayaran}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-right font-mono tabular-nums">
-                          {tx.totalQty} pcs
-                        </td>
-                        <td className="px-3.5 py-2.5 text-right font-mono font-semibold tabular-nums text-[#141413]">
-                          {formatRupiah(tx.totalPenjualan)}
+                    {transactions.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-4 py-8 text-center text-[#6B6B65]"
+                        >
+                          Belum ada transaksi kasir tercatat.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      transactions.map((tx) => (
+                        <tr key={tx.id}>
+                          <td className="px-3.5 py-2.5 font-mono font-semibold text-[#141413]">
+                            {tx.invoiceNo}
+                          </td>
+                          <td className="px-3 py-2.5 font-mono text-[#52524E]">
+                            {tx.tanggal} {tx.waktu}
+                          </td>
+                          <td className="px-3 py-2.5 text-[#3F3F3B]">{tx.kasir}</td>
+                          <td className="px-3 py-2.5">
+                            <span className="font-semibold text-[#141413]">
+                              {tx.metodePembayaran === 'TRANSFER_BANK'
+                                ? 'Transfer Bank'
+                                : tx.metodePembayaran}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-mono tabular-nums">
+                            {tx.totalQty} pcs
+                          </td>
+                          <td className="px-3.5 py-2.5 text-right font-mono font-semibold tabular-nums text-[#141413]">
+                            {formatRupiah(tx.totalPenjualan)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -959,7 +969,13 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                         Estimasi Omzet Jika Stok Fisik Terjual Semua
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold tabular-nums text-[#15803D]">
-                        {formatRupiah(summary.nilaiAsetFisikJual)}
+                        {summary.nilaiAsetFisikJual > 0 ? (
+                          formatRupiah(summary.nilaiAsetFisikJual)
+                        ) : (
+                          <span className="font-sans text-xs font-normal italic text-[#6B6B65]">
+                            Manual (Harga Jadi saat bayar)
+                          </span>
+                        )}
                       </td>
                     </tr>
                     <tr>
@@ -967,8 +983,14 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                         Potensi Margin Laba Dari Stok Tersisa
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold tabular-nums text-[#15803D]">
-                        {formatRupiah(
-                          summary.nilaiAsetFisikJual - summary.nilaiAsetFisikHpp
+                        {summary.nilaiAsetFisikJual > 0 ? (
+                          formatRupiah(
+                            summary.nilaiAsetFisikJual - summary.nilaiAsetFisikHpp
+                          )
+                        ) : (
+                          <span className="font-sans text-xs font-normal italic text-[#6B6B65]">
+                            Mengikuti Harga Jadi saat transaksi
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -985,7 +1007,13 @@ export const OpnameReportView: React.FC<OpnameReportViewProps> = ({
                         Potensi Kehilangan Omzet (Harga Jual Selisih Kurang)
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold tabular-nums text-[#B91C1C]">
-                        {formatRupiah(summary.totalPotensiKehilanganJual)}
+                        {summary.totalPotensiKehilanganJual > 0 ? (
+                          formatRupiah(summary.totalPotensiKehilanganJual)
+                        ) : (
+                          <span className="font-sans text-xs font-normal italic text-[#6B6B65]">
+                            Mengikuti HPP (Harga Jadi manual)
+                          </span>
+                        )}
                       </td>
                     </tr>
                   </tbody>

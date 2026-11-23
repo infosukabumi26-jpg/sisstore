@@ -124,7 +124,7 @@ export const StockOpnameTable: React.FC<StockOpnameTableProps> = ({
           </h1>
           <p className="mt-1 text-sm text-[#52524E]">
             {isAdmin
-              ? 'Audit stok fisik vs sistem lengkap dengan Harga Dasar (HPP), Harga Jual, Nilai Penjualan, Kerugian Selisih Barang, dan kolom Keterangan manual.'
+              ? 'Audit stok fisik vs sistem lengkap dengan Harga Dasar (HPP), Nilai Penjualan dari harga jadi, Kerugian Selisih Barang, dan kolom Keterangan manual.'
               : 'Mode Operator: Fokus menghitung stok fisik rak/gudang dan mencatat temuan lapangan pada kolom Keterangan manual.'}
           </p>
         </div>
@@ -316,7 +316,6 @@ export const StockOpnameTable: React.FC<StockOpnameTableProps> = ({
             <tr className="border-b border-[#E5E5E0] bg-[#F7F7F5] text-[#52524E] font-semibold">
               <th className="px-3 py-2.5">SKU &amp; Kaos</th>
               {isAdmin && <th className="px-2 py-2.5 text-right">HPP</th>}
-              <th className="px-2 py-2.5 text-right">Harga Jual</th>
               <th className="px-2 py-2.5 text-right">Awal</th>
               <th className="px-2 py-2.5 text-right">Masuk</th>
               <th className="px-2 py-2.5 text-right">Jual</th>
@@ -336,7 +335,7 @@ export const StockOpnameTable: React.FC<StockOpnameTableProps> = ({
             {rowsWithMetrics.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isAdmin ? 12 : 9}
+                  colSpan={isAdmin ? 11 : 8}
                   className="px-4 py-12 text-center text-sm text-[#6B6B65]"
                 >
                   Tidak ada item kaos yang sesuai dengan filter.
@@ -371,14 +370,6 @@ export const StockOpnameTable: React.FC<StockOpnameTableProps> = ({
                         {formatRupiah(item.hpp)}
                       </td>
                     )}
-                    <td className="px-2 py-2.5 text-right font-mono font-semibold tabular-nums text-[#141413] whitespace-nowrap">
-                      <div>{formatRupiah(item.hargaJual)}</div>
-                      {isAdmin && (
-                        <div className="text-[11px] font-normal text-[#15803D]">
-                          +{formatRupiah(metrics.marginPerPcs)}
-                        </div>
-                      )}
-                    </td>
                     <td className="px-2 py-2.5 text-right font-mono tabular-nums text-[#52524E]">
                       {item.stokAwal}
                     </td>
@@ -433,7 +424,7 @@ export const StockOpnameTable: React.FC<StockOpnameTableProps> = ({
                         <div className="text-[11px] text-[#15803D]">
                           Laba {formatRupiah(metrics.labaKotor)}
                         </div>
-                        {(item.penyesuaianHargaNego ?? 0) !== 0 && (
+                        {(item.penyesuaianHargaNego ?? 0) !== 0 && item.hargaJual > 0 && (
                           <div className="text-[10px] text-[#B45309]">
                             Harga Jadi {(item.penyesuaianHargaNego ?? 0) > 0 ? '+' : ''}
                             {formatRupiah(item.penyesuaianHargaNego ?? 0)}
@@ -444,13 +435,8 @@ export const StockOpnameTable: React.FC<StockOpnameTableProps> = ({
                     {isAdmin && (
                       <td className="px-2 py-2.5 text-right font-mono tabular-nums whitespace-nowrap">
                         {metrics.kerugianSelisihHpp > 0 ? (
-                          <div>
-                            <div className="font-semibold text-[#B91C1C]">
-                              -{formatRupiah(metrics.kerugianSelisihHpp)}
-                            </div>
-                            <div className="text-[11px] text-[#6B6B65]">
-                              Jual: {formatRupiah(metrics.potensiKehilanganJual)}
-                            </div>
+                          <div className="font-semibold text-[#B91C1C]">
+                            -{formatRupiah(metrics.kerugianSelisihHpp)}
                           </div>
                         ) : metrics.nilaiSurplusHpp > 0 ? (
                           <div className="text-[#B45309] font-medium">
@@ -480,7 +466,7 @@ export const StockOpnameTable: React.FC<StockOpnameTableProps> = ({
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-[#D6D6D0] bg-[#F7F7F5] font-semibold text-[#141413]">
-              <td className="px-3 py-3" colSpan={isAdmin ? 3 : 2}>
+              <td className="px-3 py-3" colSpan={isAdmin ? 2 : 1}>
                 REKAP TOTAL ({items.length} SKU)
               </td>
               <td className="px-2 py-3 text-right font-mono tabular-nums">

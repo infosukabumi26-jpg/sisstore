@@ -299,3 +299,25 @@ test('calculateItemMetrics reflects negotiated checkout price adjustments in nil
   assert.equal(m.totalHppTerjual, 650000);
   assert.equal(m.labaKotor, 810000);
 });
+
+test('calculateItemMetrics computes omzet, gross profit, and HPP loss accurately when hargaJual is 0 (manual checkout)', () => {
+  const manualPriceItem: TShirtItem = {
+    ...sampleDeficitItem,
+    hargaJual: 0,
+    hpp: 65000,
+    stokAwal: 10,
+    stokMasuk: 0,
+    terjual: 2,
+    stokFisik: 7, // stokSistem = 8 -> selisih = -1
+    penyesuaianHargaNego: 290000, // 2 pcs sold manually at Rp 145.000/pcs
+  };
+  const m = calculateItemMetrics(manualPriceItem);
+  assert.equal(m.stokSistem, 8);
+  assert.equal(m.selisihQty, -1);
+  assert.equal(m.marginPersen, 0);
+  assert.equal(m.nilaiPenjualan, 290000);
+  assert.equal(m.totalHppTerjual, 130000);
+  assert.equal(m.labaKotor, 160000);
+  assert.equal(m.kerugianSelisihHpp, 65000);
+  assert.equal(m.potensiKehilanganJual, 0);
+});

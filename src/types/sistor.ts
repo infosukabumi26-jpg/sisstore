@@ -199,5 +199,6 @@ export interface StoreSettings {
   driveFolderUrl?: string;
   spreadsheetId: string;
   spreadsheetTitle: string;
+  autoSyncEnabled?: boolean;
   lastSyncedAt: string | null;
 }

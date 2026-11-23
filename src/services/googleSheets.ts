@@ -59,6 +59,27 @@ export function isValidAppsScriptUrl(rawUrl: string): boolean {
   }
 }
 
+export function normalizeDriveFolderName(folderName: string): string {
+  const trimmed = folderName.trim();
+  return trimmed || 'Sisstore_Media_Drive';
+}
+
+export function isGasConfigReady(
+  appsScriptUrl: string,
+  driveFolderName: string
+): boolean {
+  return (
+    isValidAppsScriptUrl(appsScriptUrl) && driveFolderName.trim().length > 0
+  );
+}
+
+export function shouldRunRealTimeAutoSync(settings: StoreSettings): boolean {
+  return (
+    isValidAppsScriptUrl(settings.appsScriptUrl) &&
+    settings.autoSyncEnabled !== false
+  );
+}
+
 export function parseDataUrl(
   dataUrl: string
 ): { mimeType: string; base64: string; ext: string } | null {
@@ -166,8 +187,8 @@ export function buildAllSheetRows(
         item.ukuran,
         item.warna,
         item.hpp,
-        item.hargaJual,
-        m.marginPerPcs,
+        item.hargaJual > 0 ? item.hargaJual : '',
+        item.hargaJual > 0 ? m.marginPerPcs : '',
         item.stokAwal,
         item.stokMasuk,
         item.terjual,
@@ -296,7 +317,7 @@ export function buildAllSheetRows(
       p.kategori,
       p.ukuran,
       p.warna,
-      p.hargaJual,
+      p.hargaJual > 0 ? p.hargaJual : 'Manual di Kasir',
       p.hpp,
       p.qtyTerjual,
       p.omzet,
@@ -374,6 +395,7 @@ export function buildAllSheetRows(
     ['defaultCashier', settings.defaultCashier],
     ['receiptFooterNote', settings.receiptFooterNote],
     ['driveFolderName', settings.driveFolderName],
+    ['autoSyncEnabled', String(settings.autoSyncEnabled !== false)],
     ['bankAccountsJson', JSON.stringify(settings.bankAccounts)],
     ['usersJson', JSON.stringify(settings.users)],
   ];
@@ -554,6 +576,9 @@ export function parseSettingsRows(values: unknown[][]): Partial<StoreSettings> {
   if (map.defaultCashier) patch.defaultCashier = map.defaultCashier;
   if (map.receiptFooterNote) patch.receiptFooterNote = map.receiptFooterNote;
   if (map.driveFolderName) patch.driveFolderName = map.driveFolderName;
+  if (map.autoSyncEnabled !== undefined) {
+    patch.autoSyncEnabled = map.autoSyncEnabled !== 'false';
+  }
   if (map.bankAccountsJson) {
     try {
       const parsedBanks = JSON.parse(map.bankAccountsJson);

@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 import {
   buildAllSheetRows,
   computeSyncSignature,
+  isGasConfigReady,
   isValidAppsScriptUrl,
+  normalizeDriveFolderName,
   parseDataUrl,
   parseKatalogRows,
   parseLaporanRows,
   parseSettingsRows,
   parseTransaksiRows,
+  shouldRunRealTimeAutoSync,
 } from './googleSheets.ts';
 import type {
   OpnameReport,
@@ -219,4 +222,35 @@ test('computeSyncSignature ignores sync metadata changes but detects business da
     SAMPLE_SETTINGS
   );
   assert.notEqual(sigA, sigItemChanged);
+});
+
+test('isGasConfigReady, normalizeDriveFolderName, and shouldRunRealTimeAutoSync validate GAS readiness', () => {
+  assert.equal(normalizeDriveFolderName('   '), 'Sisstore_Media_Drive');
+  assert.equal(normalizeDriveFolderName(' Sisstore_Cloud '), 'Sisstore_Cloud');
+
+  assert.equal(
+    isGasConfigReady(
+      'https://script.google.com/macros/s/AKfycb123/exec',
+      'Sisstore_Media_Drive'
+    ),
+    true
+  );
+  assert.equal(
+    isGasConfigReady('https://script.google.com/macros/s/AKfycb123/exec', '   '),
+    false
+  );
+  assert.equal(
+    isGasConfigReady('https://script.google.com/macros/s/AKfycb123/dev', 'Sisstore'),
+    false
+  );
+
+  assert.equal(shouldRunRealTimeAutoSync(SAMPLE_SETTINGS), true);
+  assert.equal(
+    shouldRunRealTimeAutoSync({ ...SAMPLE_SETTINGS, autoSyncEnabled: false }),
+    false
+  );
+  assert.equal(
+    shouldRunRealTimeAutoSync({ ...SAMPLE_SETTINGS, appsScriptUrl: '' }),
+    false
+  );
 });

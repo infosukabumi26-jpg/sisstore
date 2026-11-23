@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   BookOpen,
   Check,
@@ -18,6 +18,7 @@ import {
   Pencil,
   Plus,
   QrCode,
+  RefreshCw,
   ShieldCheck,
   Trash2,
   UserCheck,
@@ -25,7 +26,10 @@ import {
   X,
 } from 'lucide-react';
 import { SISTOR_APPS_SCRIPT_CODE } from '../data/appsScriptTemplate';
-import type { DriveMediaCategory } from '../services/googleSheets';
+import {
+  type DriveMediaCategory,
+  isGasConfigReady,
+} from '../services/googleSheets';
 import type {
   BankAccount,
   OpnameReport,
@@ -47,11 +51,14 @@ interface SheetsAndSettingsViewProps {
   reports: OpnameReport[];
   isAppsScriptConnected: boolean;
   isSyncing: boolean;
+  autoSyncStatus?: 'idle' | 'syncing' | 'synced' | 'error';
   syncFeedback: {
     type: 'success' | 'error';
     message: string;
   } | null;
   onConnectAppsScript: (url: string, driveFolderName: string) => Promise<void>;
+  onInstantAutoSync: (draftUrl?: string, draftFolderName?: string) => Promise<void>;
+  onToggleAutoSync: () => void;
   onDisconnectAppsScript: () => void;
   onPushToSheets: () => Promise<void>;
   onPullFromSheets: () => Promise<void>;
@@ -71,8 +78,11 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
   reports,
   isAppsScriptConnected,
   isSyncing,
+  autoSyncStatus = 'idle',
   syncFeedback,
   onConnectAppsScript,
+  onInstantAutoSync,
+  onToggleAutoSync,
   onDisconnectAppsScript,
   onPushToSheets,
   onPullFromSheets,
@@ -82,6 +92,21 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
   const [folderNameInput, setFolderNameInput] = useState(
     settings.driveFolderName || 'Sisstore_Media_Drive'
   );
+
+  useEffect(() => {
+    setScriptUrlInput(settings.appsScriptUrl);
+  }, [settings.appsScriptUrl]);
+
+  useEffect(() => {
+    if (settings.driveFolderName) {
+      setFolderNameInput(settings.driveFolderName);
+    }
+  }, [settings.driveFolderName]);
+
+  const isDraftGasReady = isGasConfigReady(scriptUrlInput, folderNameInput);
+  const canInstantAutoSync = isDraftGasReady || isAppsScriptConnected;
+  const isAutoSyncActive =
+    isAppsScriptConnected && settings.autoSyncEnabled !== false;
   const [showScriptCode, setShowScriptCode] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [confirmAction, setConfirmAction] = useState<null | 'push' | 'pull'>(
@@ -551,7 +576,9 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                 className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1E3A8A] px-4 py-2 text-xs font-semibold text-white hover:bg-[#172554] disabled:opacity-60"
               >
                 <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-                {isSyncing ? 'Menghubungkan...' : 'Simpan & Uji Koneksi'}
+                {isSyncing
+                  ? 'Menghubungkan & Menyinkronkan...'
+                  : 'Simpan & Uji Koneksi'}
               </button>
               {isAppsScriptConnected && (
                 <button
@@ -566,6 +593,9 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                 </button>
               )}
             </div>
+            <p className="text-[11px] text-[#6B6B65]">
+              Saat klik <strong>Simpan &amp; Uji Koneksi</strong>, aplikasi otomatis memverifikasi Web App GAS, menautkan folder Drive, langsung mengisi 7 tab Spreadsheet, dan mengaktifkan <strong>Sinkronisasi Real-Time</strong>.
+            </p>
           </form>
 
           <div className="rounded-lg border border-[#E5E5E0] bg-[#F7F7F5] p-4 flex flex-col justify-between">
@@ -574,12 +604,16 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                 <span className="text-xs font-semibold text-[#3F3F3B]">
                   Status Spreadsheet &amp; Google Drive
                 </span>
-                {isAppsScriptConnected && (
+                {isAppsScriptConnected ? (
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#15803D]">
                     <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    Terhubung
+                    Terhubung Real-Time
                   </span>
-                )}
+                ) : isDraftGasReady ? (
+                  <span className="text-xs font-semibold text-[#1E3A8A]">
+                    URL &amp; Folder Siap Dihubungkan
+                  </span>
+                ) : null}
               </div>
 
               {isAppsScriptConnected ? (
@@ -592,11 +626,42 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                       ID: {settings.spreadsheetId}
                     </div>
                   )}
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[#E5E5E0] bg-white px-3 py-2">
+                    <div className="text-[11px]">
+                      <span className="font-semibold text-[#141413]">
+                        Auto-Sync Real-Time:{' '}
+                      </span>
+                      <span
+                        className={
+                          autoSyncStatus === 'error'
+                            ? 'font-semibold text-[#B91C1C]'
+                            : isAutoSyncActive
+                            ? 'font-semibold text-[#15803D]'
+                            : 'font-semibold text-[#B45309]'
+                        }
+                      >
+                        {autoSyncStatus === 'syncing'
+                          ? 'Sedang menyinkronkan...'
+                          : autoSyncStatus === 'error'
+                          ? 'Tertunda (coba sinkron ulang)'
+                          : isAutoSyncActive
+                          ? 'Aktif Otomatis'
+                          : 'Dijeda'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onToggleAutoSync}
+                      className="text-[11px] font-semibold text-[#1E3A8A] hover:underline"
+                    >
+                      {isAutoSyncActive ? 'Jeda Auto-Sync' : 'Aktifkan Auto-Sync'}
+                    </button>
+                  </div>
                   <div className="text-[#6B6B65]">
                     Sinkron terakhir:{' '}
                     {settings.lastSyncedAt
                       ? new Date(settings.lastSyncedAt).toLocaleString('id-ID')
-                      : 'Belum disinkronkan'}
+                      : 'Siap sinkron otomatis'}
                   </div>
 
                   <div className="mt-2 flex flex-wrap gap-3 pt-1">
@@ -627,7 +692,9 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                 </div>
               ) : (
                 <p className="mt-2 text-xs text-[#6B6B65]">
-                  Belum terhubung ke Apps Script. Aplikasi tetap berjalan penuh secara lokal, dan Anda dapat melihat panduan kode <code className="font-mono">Code.gs</code> di kanan atas untuk menghubungkan Spreadsheet &amp; Google Drive kapan saja.
+                  {isDraftGasReady
+                    ? 'URL Web App GAS dan Folder Drive sudah terisi. Klik "Simpan & Uji Koneksi" atau langsung tekan 1 tombol "Sinkronisasi Otomatis Sekarang" di bawah untuk menyambungkan dan menyinkronkan seluruh data secara real-time.'
+                    : 'Isi URL Web App Google Apps Script (/exec) dan Nama Folder Drive di sebelah kiri. Setelah terisi, Anda bisa langsung menyambungkan dan menyinkronkan Spreadsheet secara real-time dalam 1 klik.'}
                 </p>
               )}
             </div>
@@ -635,12 +702,20 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
             <div className="mt-4 flex flex-wrap gap-2 border-t border-[#E5E5E0] pt-4">
               <button
                 type="button"
-                disabled={!isAppsScriptConnected || isSyncing}
-                onClick={() => setConfirmAction('push')}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#141413] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1E3A8A] disabled:cursor-not-allowed disabled:bg-[#D6D6D0] disabled:text-[#6B6B65]"
+                disabled={!canInstantAutoSync || isSyncing}
+                onClick={() =>
+                  void onInstantAutoSync(scriptUrlInput, folderNameInput)
+                }
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1E3A8A] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#172554] disabled:cursor-not-allowed disabled:bg-[#D6D6D0] disabled:text-[#6B6B65]"
               >
-                <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" />
-                Sinkronkan Data &amp; Gambar
+                {isSyncing || autoSyncStatus === 'syncing' ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {isSyncing || autoSyncStatus === 'syncing'
+                  ? 'Menyinkronkan...'
+                  : 'Sinkronisasi Otomatis Sekarang'}
               </button>
               <button
                 type="button"
@@ -1184,39 +1259,6 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
         </div>
       </section>
 
-      {/* GitHub & Vercel Deployment Guide */}
-      <section className="rounded-xl border border-[#E5E5E0] bg-white p-6">
-        <h2 className="font-display text-base font-bold text-[#141413]">
-          Panduan Penyimpanan GitHub &amp; Hosting Vercel (vercel.com)
-        </h2>
-        <div className="mt-3 grid grid-cols-1 gap-4 text-xs leading-relaxed text-[#3F3F3B] md:grid-cols-3">
-          <div className="rounded-lg bg-[#F7F7F5] p-4">
-            <div className="font-semibold text-[#141413]">
-              01. Simpan Kode ke GitHub
-            </div>
-            <p className="mt-1">
-              Folder <code className="font-mono">google-apps-script/Code.gs</code> dan <code className="font-mono">README.md</code> sudah siap. Push seluruh proyek ke repository GitHub Anda dengan <code className="font-mono">git push origin main</code>.
-            </p>
-          </div>
-          <div className="rounded-lg bg-[#F7F7F5] p-4">
-            <div className="font-semibold text-[#141413]">
-              02. Deploy di vercel.com
-            </div>
-            <p className="mt-1">
-              Di dashboard Vercel, pilih <strong>Add New Project</strong>, impor repo GitHub, lalu klik <strong>Deploy</strong>. File <code className="font-mono">vercel.json</code> otomatis menangani build Vite &amp; routing.
-            </p>
-          </div>
-          <div className="rounded-lg bg-[#F7F7F5] p-4">
-            <div className="font-semibold text-[#141413]">
-              03. Langsung Pakai Tanpa Firebase
-            </div>
-            <p className="mt-1">
-              Karena memakai Google Apps Script, Anda tidak perlu setup Firebase maupun mendaftarkan domain Vercel di Google Cloud Console — cukup tempel URL Web App Apps Script.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Confirmation Dialogs before Mutating Sheets / Local State */}
       <ConfirmDialog
         open={confirmAction === 'push'}
@@ -1225,7 +1267,7 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
         details={[
           `Tab Ringkasan_Eksekutif: KPI omzet, HPP, laba bersih, arus kas & valuasi aset`,
           `Tab Katalog_Kaos: ${items.length} SKU + link foto Google Drive`,
-          `Tab Stock_Opname: HPP, Harga Jual, Nilai Penjualan, Kerugian Selisih & Keterangan`,
+          `Tab Stock_Opname: HPP, Nilai Penjualan, Laba Kotor, Kerugian Selisih & Keterangan`,
           `Tab Transaksi_Penjualan: ${transactions.length} transaksi (Cash, QRIS, Transfer & Kasir)`,
           `Tab Laporan_Penjualan_Produk: Peringkat omzet & laba kotor per varian kaos`,
           `Tab Laporan_Opname: ${reports.length} arsip berita acara opname`,

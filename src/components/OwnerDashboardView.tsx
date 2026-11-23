@@ -332,10 +332,16 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#52524E]">Estimasi Nilai Jual Stok Fisik</span>
-                <span className="font-mono font-bold tabular-nums text-[#15803D]">
-                  {formatRupiah(summary.nilaiAsetFisikJual)}
-                </span>
+                <span className="text-[#52524E]">Harga Jual Stok Fisik</span>
+                {summary.nilaiAsetFisikJual > 0 ? (
+                  <span className="font-mono font-bold tabular-nums text-[#15803D]">
+                    {formatRupiah(summary.nilaiAsetFisikJual)}
+                  </span>
+                ) : (
+                  <span className="text-xs italic text-[#6B6B65]">
+                    Manual (Harga Jadi saat bayar)
+                  </span>
+                )}
               </div>
               <div className="flex items-center justify-between border-t border-[#E5E5E0] pt-2.5">
                 <span className="flex items-center gap-1.5 text-[#52524E]">
@@ -446,35 +452,41 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
           </div>
 
           <div className="mt-3 divide-y divide-[#E5E5E0]">
-            {recentTransactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between gap-3 py-3 text-xs"
-              >
-                <div className="min-w-0">
-                  <div className="font-mono font-semibold text-[#141413]">
-                    {tx.invoiceNo}{' '}
-                    <span className="font-sans font-normal text-[#6B6B65]">
-                      · {tx.tanggal} {tx.waktu}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 truncate text-[#52524E]">
-                    Kasir: {tx.kasir} ·{' '}
-                    {tx.metodePembayaran === 'TRANSFER_BANK'
-                      ? 'Transfer Bank'
-                      : tx.metodePembayaran}
-                  </div>
-                </div>
-                <div className="text-right shrink-0 font-mono tabular-nums">
-                  <div className="font-bold text-[#141413]">
-                    {formatRupiah(tx.totalPenjualan)}
-                  </div>
-                  <div className="text-[11px] text-[#6B6B65]">
-                    {tx.totalQty} pcs
-                  </div>
-                </div>
+            {recentTransactions.length === 0 ? (
+              <div className="py-8 text-center text-xs text-[#6B6B65]">
+                Belum ada transaksi kasir tercatat. Buat transaksi di menu Kasir Penjualan dengan mengisi Harga Jadi / pcs.
               </div>
-            ))}
+            ) : (
+              recentTransactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between gap-3 py-3 text-xs"
+                >
+                  <div className="min-w-0">
+                    <div className="font-mono font-semibold text-[#141413]">
+                      {tx.invoiceNo}{' '}
+                      <span className="font-sans font-normal text-[#6B6B65]">
+                        · {tx.tanggal} {tx.waktu}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 truncate text-[#52524E]">
+                      Kasir: {tx.kasir} ·{' '}
+                      {tx.metodePembayaran === 'TRANSFER_BANK'
+                        ? 'Transfer Bank'
+                        : tx.metodePembayaran}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 font-mono tabular-nums">
+                    <div className="font-bold text-[#141413]">
+                      {formatRupiah(tx.totalPenjualan)}
+                    </div>
+                    <div className="text-[11px] text-[#6B6B65]">
+                      {tx.totalQty} pcs
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

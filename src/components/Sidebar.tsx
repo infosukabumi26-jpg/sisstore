@@ -32,6 +32,7 @@ interface SidebarProps {
   logoUrl?: string;
   isAppsScriptConnected: boolean;
   spreadsheetLinked: boolean;
+  autoSyncEnabled?: boolean;
   autoSyncStatus?: 'idle' | 'syncing' | 'synced' | 'error';
   lastSyncedAt?: string | null;
   mobileOpen: boolean;
@@ -94,6 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   logoUrl,
   isAppsScriptConnected,
   spreadsheetLinked,
+  autoSyncEnabled = true,
   autoSyncStatus = 'idle',
   lastSyncedAt,
   mobileOpen,
@@ -195,14 +197,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     ? 'text-[#B91C1C]'
                     : autoSyncStatus === 'syncing'
                     ? 'text-[#1E3A8A]'
-                    : 'text-[#15803D]'
+                    : autoSyncEnabled
+                    ? 'text-[#15803D]'
+                    : 'text-[#B45309]'
                 }`}
               >
                 {autoSyncStatus === 'syncing'
                   ? 'Sync...'
                   : autoSyncStatus === 'error'
                   ? 'Tertunda'
-                  : 'Live'}
+                  : autoSyncEnabled
+                  ? 'Live'
+                  : 'Jeda'}
               </span>
             )}
           </div>
@@ -210,6 +216,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {isAppsScriptConnected
               ? autoSyncStatus === 'syncing'
                 ? 'Menyinkronkan ke Sheets...'
+                : !autoSyncEnabled
+                ? 'Auto-Sync dijeda sementara'
                 : lastSyncedAt
                 ? `Auto-Sync Aktif · ${new Date(lastSyncedAt).toLocaleTimeString('id-ID', {
                     hour: '2-digit',

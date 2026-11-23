@@ -4,14 +4,13 @@ import {
   BookOpen,
   Eye,
   EyeOff,
-  KeyRound,
   Moon,
-  ShieldCheck,
+  Shirt,
   Store,
   Sun,
-  UserCheck,
 } from 'lucide-react';
-import type { StoreUser, UserRole } from '../types/sistor';
+import type { StoreUser } from '../types/sistor';
+import { LoginApparelBackdrop } from './LoginApparelBackdrop';
 
 interface LoginViewProps {
   storeName: string;
@@ -24,8 +23,41 @@ interface LoginViewProps {
   onLoginSuccess: (user: StoreUser) => void;
 }
 
-const PREVIEW_BLACK = '/src/assets/images/sistor_tee_heavy_black_1795013810356.jpg';
-const PREVIEW_BONE = '/src/assets/images/sistor_tee_bone_white_1795013810610.jpg';
+const BOUTIQUE_HERO = '/src/assets/images/sisstore_hero_boutique_1795429769018.jpg';
+const KOLEKSI_IMPOR = '/src/assets/images/sisstore_koleksi_impor_1795429766425.jpg';
+const KOLEKSI_LOKAL = '/src/assets/images/sisstore_koleksi_lokal_1795429768208.jpg';
+
+const ShowcaseImage: React.FC<{
+  src: string;
+  alt: string;
+  fallbackTitle: string;
+  className?: string;
+}> = ({ src, alt, fallbackTitle, className = '' }) => {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div
+        className={`flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#1E2433] via-[#171B24] to-[#11141B] p-4 text-center ${className}`}
+      >
+        <Shirt className="h-7 w-7 text-[#93C5FD]/80" aria-hidden="true" />
+        <span className="mt-2 text-xs font-medium text-[#D1D5DB]">
+          {fallbackTitle}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  );
+};
 
 export const LoginView: React.FC<LoginViewProps> = ({
   storeName,
@@ -37,21 +69,10 @@ export const LoginView: React.FC<LoginViewProps> = ({
   onToggleTheme,
   onLoginSuccess,
 }) => {
-  const [selectedRoleHint, setSelectedRoleHint] = useState<UserRole>('OPERATOR');
-  const [username, setUsername] = useState('operator');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  const handleSelectQuickAccount = (role: UserRole) => {
-    setSelectedRoleHint(role);
-    setErrorMsg('');
-    const matched = users.find((u) => u.role === role);
-    if (matched) {
-      setUsername(matched.username);
-      setPassword(matched.password);
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +87,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
     if (!matched) {
       setErrorMsg(
-        'Username atau kata sandi tidak sesuai. Pilih akun cepat di atas atau periksa kembali kredensial Anda.'
+        'Username atau kata sandi tidak sesuai. Silakan periksa kembali kredensial akun Anda.'
       );
       return;
     }
@@ -76,118 +97,169 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
   return (
     <div className="min-h-screen bg-[#F7F7F5] text-[#141413] grid grid-cols-1 lg:grid-cols-12">
-      {/* Left Brand & Editorial Showcase Panel */}
-      <div className="login-showcase-panel relative flex flex-col justify-between bg-[#141413] px-6 py-8 text-white sm:px-10 sm:py-10 lg:col-span-6 lg:px-12 lg:py-12">
-        <div>
-          <div className="flex items-center gap-3.5">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt={`Logo ${storeName}`}
-                referrerPolicy="no-referrer"
-                className="h-12 w-12 rounded-xl border border-white/15 bg-[#FAF5EE] object-cover"
-              />
-            ) : (
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#1E3A8A] font-display text-lg font-extrabold tracking-tight text-white">
-                {storeName.slice(0, 1).toUpperCase()}
+      {/* Left Brand & Editorial Fashion Boutique Showcase */}
+      <div className="login-showcase-panel order-2 lg:order-1 relative overflow-hidden flex flex-col justify-between px-6 py-8 text-white sm:px-10 sm:py-10 lg:col-span-6 lg:px-12 lg:py-10">
+        <LoginApparelBackdrop variant="showcase" />
+        <div className="relative z-10 max-w-xl">
+          {/* Brand Lockup */}
+          <div className="flex items-center justify-between gap-4 border-b border-white/20 pb-5">
+            <div className="flex items-center gap-3.5">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={`Logo ${storeName}`}
+                  referrerPolicy="no-referrer"
+                  className="h-12 w-12 rounded-xl border border-white/25 bg-[#FAF5EE] object-cover shadow-sm"
+                />
+              ) : (
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/25 bg-white/15 font-display text-lg font-extrabold tracking-tight text-white">
+                  {storeName.slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <div className="font-display text-xl font-extrabold tracking-tight text-white">
+                  {storeName}
+                </div>
+                <div className="text-xs text-[#DBEAFE]">{storeTagline}</div>
               </div>
-            )}
-            <div>
-              <div className="font-display text-xl font-extrabold tracking-tight">
-                {storeName}
-              </div>
-              <div className="text-xs text-[#A1A19A]">{storeTagline}</div>
+            </div>
+            <div className="hidden sm:block text-right text-xs text-[#DBEAFE]">
+              <div>Koleksi Terkurasi</div>
+              <div className="font-semibold text-white">Bekasi · Setiap Hari</div>
             </div>
           </div>
 
-          <div className="mt-10 max-w-lg">
-            <div className="text-xs font-semibold uppercase tracking-widest text-[#93C5FD]">
-              Sistem Kasir &amp; Stock Opname Profesional
+          {/* Editorial Headline */}
+          <div className="mt-6">
+            <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-[#BAE6FD]">
+              <span>Butik Busana Wanita</span>
+              <span aria-hidden="true" className="text-white/40">·</span>
+              <span>Kasir &amp; Stock Opname</span>
             </div>
-            <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
-              Penjualan Kaos, Kasir Multi-Bayar &amp; Audit Stok Akurat.
+            <h1 className="mt-2 font-display text-3xl font-extrabold leading-[1.15] tracking-tight text-white [text-wrap:balance] sm:text-[2.15rem]">
+              Kurasi Busana Lokal &amp; Impor, Kasir Cepat &amp; Audit Stok Akurat.
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#C2C2BA]">
-              Kelola transaksi Cash, QRIS, dan Transfer Bank, hitung Harga Dasar (HPP), nilai penjualan, serta kerugian selisih barang dengan sinkronisasi langsung ke Google Spreadsheet dan Google Drive.
+            <p className="mt-2.5 text-sm leading-relaxed text-[#EFF6FF]">
+              Kelola penjualan atasan, blouse, celana, hingga outerwear di meja kasir dengan harga jadi fleksibel, multi-metode bayar, dan sinkronisasi rapi ke Google Spreadsheet.
             </p>
           </div>
 
-          {/* Studio Product Cards */}
-          <div className="mt-8 grid grid-cols-2 gap-4 max-w-lg">
-            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1F1F1D]">
-              <div className="aspect-[4/3] w-full overflow-hidden bg-[#272724]">
-                <img
-                  src={PREVIEW_BLACK}
-                  alt="Koleksi Sisstore Boxy Heavyweight 280gsm Jet Black"
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
+          {/* Editorial Boutique Visual Gallery */}
+          <div className="mt-6 space-y-3">
+            {/* Primary Boutique Hero Frame (16:9) */}
+            <div className="group relative overflow-hidden rounded-xl border border-white/25 bg-[#172554] shadow-md">
+              <div className="aspect-[16/9] w-full overflow-hidden">
+                <ShowcaseImage
+                  src={BOUTIQUE_HERO}
+                  alt="Suasana butik Sisstore dengan koleksi blazer, blouse, dan celana wanita terkurasi"
+                  fallbackTitle="Galeri Butik Sisstore"
+                  className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
                 />
               </div>
-              <div className="p-3">
-                <div className="text-xs font-semibold text-white">
-                  Heavyweight 280gsm
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0F172A]/85 via-[#0F172A]/25 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-4 sm:p-5">
+                <div>
+                  <div className="text-[11px] font-medium tracking-wide text-[#BAE6FD]">
+                    Etalase Butik · Lokal &amp; Impor
+                  </div>
+                  <div className="mt-0.5 font-display text-base font-bold text-white sm:text-lg">
+                    Pilihan Harian hingga Semi-Formal
+                  </div>
                 </div>
-                <div className="mt-0.5 text-[11px] text-[#A1A19A]">
-                  Pantau HPP, Margin &amp; Stok Real-Time
+                <div className="hidden sm:block text-right text-xs text-[#E0F2FE]">
+                  <div>Atasan · Celana · Jaket</div>
+                  <div className="text-[#BAE6FD]">Ready Stock di Toko</div>
                 </div>
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1F1F1D]">
-              <div className="aspect-[4/3] w-full overflow-hidden bg-[#272724]">
-                <img
-                  src={PREVIEW_BONE}
-                  alt="Koleksi Sisstore Daily Combed 24s Bone White"
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="p-3">
-                <div className="text-xs font-semibold text-white">
-                  Daily Combed 24s
+            {/* Dual Curated Collection Frames (4:3) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="group relative overflow-hidden rounded-xl border border-white/20 bg-[#172554] shadow-sm">
+                <div className="aspect-[4/3] w-full overflow-hidden">
+                  <ShowcaseImage
+                    src={KOLEKSI_IMPOR}
+                    alt="Koleksi Impor Sisstore: jaket tweed, kemeja poplin, dan celana lipit"
+                    fallbackTitle="Koleksi Impor Pilihan"
+                    className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                  />
                 </div>
-                <div className="mt-0.5 text-[11px] text-[#A1A19A]">
-                  Cetak Struk Thermal 58mm / 80mm
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0F172A]/85 via-[#0F172A]/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-3 sm:p-3.5">
+                  <div className="text-xs font-bold text-white">
+                    Seri Impor Terpilih
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-[#E0F2FE]">
+                    Jaket tweed, blouse &amp; celana tailored
+                  </div>
+                </div>
+              </div>
+
+              <div className="group relative overflow-hidden rounded-xl border border-white/20 bg-[#172554] shadow-sm">
+                <div className="aspect-[4/3] w-full overflow-hidden">
+                  <ShowcaseImage
+                    src={KOLEKSI_LOKAL}
+                    alt="Koleksi Lokal Sisstore: outer linen sage, rajut tulang, dan celana santai"
+                    fallbackTitle="Koleksi Lokal Unggulan"
+                    className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                  />
+                </div>
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0F172A]/85 via-[#0F172A]/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-3 sm:p-3.5">
+                  <div className="text-xs font-bold text-white">
+                    Seri Lokal Harian
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-[#E0F2FE]">
+                    Linen, rajut lembut &amp; potongan nyaman
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Role Architecture Highlights */}
-          <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 max-w-lg">
-            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#93C5FD]">
-                <UserCheck className="h-4 w-4" aria-hidden="true" />
-                Akses Operator / Kasir
+          {/* Clean Hairline-Divided Store Workflow Strip */}
+          <div className="mt-6 grid grid-cols-3 divide-x divide-white/20 border-t border-white/20 pt-4">
+            <div className="pr-3">
+              <div className="text-xs font-semibold text-white">
+                Kasir Multi-Bayar
               </div>
-              <p className="mt-1.5 text-xs leading-relaxed text-[#B6B6AE]">
-                Fokus pada kasir penjualan (Cash, QRIS, Transfer), cetak struk, hitung fisik opname harian, &amp; laporan shift.
-              </p>
+              <div className="mt-0.5 text-[11px] leading-snug text-[#DBEAFE]">
+                Cash, QRIS &amp; Transfer + Struk Thermal
+              </div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#FDE68A]">
-                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                Akses Admin / Pemilik (Owner)
+            <div className="px-3">
+              <div className="text-xs font-semibold text-white">
+                Harga Jadi Kasir
               </div>
-              <p className="mt-1.5 text-xs leading-relaxed text-[#B6B6AE]">
-                Dashboard eksekutif, kontrol penuh HPP &amp; margin, laporan laba rugi, katalog kaos, serta sinkron Sheets &amp; Drive.
-              </p>
+              <div className="mt-0.5 text-[11px] leading-snug text-[#DBEAFE]">
+                Nominal jual fleksibel saat checkout
+              </div>
+            </div>
+            <div className="pl-3">
+              <div className="text-xs font-semibold text-white">
+                Opname &amp; Sync
+              </div>
+              <div className="mt-0.5 text-[11px] leading-snug text-[#DBEAFE]">
+                Audit fisik SKU &amp; Google Sheets
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-5 text-xs text-[#8D8D85]">
+        {/* Store Address Footer */}
+        <div className="relative z-10 mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-white/20 pt-4 text-xs text-[#DBEAFE]">
           <div className="flex items-start gap-1.5 max-w-md">
-            <Store className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <Store className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#BAE6FD]" aria-hidden="true" />
             <span>{storeAddress}</span>
           </div>
-          <span>Buka 10.00–21.00 WIB</span>
+          <span className="font-semibold text-white">10.00–21.00 WIB</span>
         </div>
       </div>
 
       {/* Right Login Card Column */}
-      <div className="flex items-center justify-center px-5 py-10 sm:px-8 lg:col-span-6 lg:px-14">
-        <div className="w-full max-w-md rounded-2xl border border-[#E5E5E0] bg-white p-6 shadow-xs sm:p-8">
+      <div className="order-1 lg:order-2 relative overflow-hidden flex items-center justify-center px-5 py-10 sm:px-8 lg:col-span-6 lg:px-14">
+        <LoginApparelBackdrop variant="light" />
+        <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#E5E5E0] bg-white p-6 shadow-md sm:p-8">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-[#1E3A8A]">
@@ -231,56 +303,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
             )}
           </div>
 
-          {/* Role Quick-Selector */}
-          <div className="mt-6">
-            <div className="text-xs font-semibold text-[#3F3F3B]">
-              Pilih Peran Masuk Cepat (Isi Otomatis):
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => handleSelectQuickAccount('OPERATOR')}
-                className={`flex flex-col items-start rounded-xl border p-3 text-left transition-colors ${
-                  selectedRoleHint === 'OPERATOR'
-                    ? 'border-[#1E3A8A] bg-[#EFF6FF]'
-                    : 'border-[#E5E5E0] bg-[#F7F7F5] hover:bg-[#EFEFEA]'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#141413]">
-                  <UserCheck
-                    className="h-4 w-4 text-[#1E3A8A]"
-                    aria-hidden="true"
-                  />
-                  Operator / Kasir
-                </div>
-                <div className="mt-1 text-[11px] text-[#52524E]">
-                  Kasir POS &amp; Hitung Opname
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectQuickAccount('ADMIN')}
-                className={`flex flex-col items-start rounded-xl border p-3 text-left transition-colors ${
-                  selectedRoleHint === 'ADMIN'
-                    ? 'border-[#1E3A8A] bg-[#EFF6FF]'
-                    : 'border-[#E5E5E0] bg-[#F7F7F5] hover:bg-[#EFEFEA]'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#141413]">
-                  <ShieldCheck
-                    className="h-4 w-4 text-[#1E3A8A]"
-                    aria-hidden="true"
-                  />
-                  Admin / Pemilik
-                </div>
-                <div className="mt-1 text-[11px] text-[#52524E]">
-                  Owner, HPP &amp; Laporan Penuh
-                </div>
-              </button>
-            </div>
-          </div>
-
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
               <label
@@ -294,7 +316,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 type="text"
                 autoComplete="username"
                 required
-                placeholder="operator atau admin"
+                placeholder="Masukkan username akun..."
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
@@ -362,41 +384,10 @@ export const LoginView: React.FC<LoginViewProps> = ({
             </button>
           </form>
 
-          {/* Default Account Reference Box */}
-          <div className="mt-6 rounded-xl border border-[#E5E5E0] bg-[#F7F7F5] p-3.5 text-xs">
-            <div className="flex items-center gap-1.5 font-semibold text-[#141413]">
-              <KeyRound className="h-3.5 w-3.5 text-[#1E3A8A]" aria-hidden="true" />
-              Info Akun Terdaftar ({users.length} Pengguna)
-            </div>
-            <div className="mt-2 space-y-1.5 text-[11px] text-[#52524E]">
-              {users.map((u) => {
-                const isDemoPass =
-                  (u.username === 'admin' && u.password === 'owner123') ||
-                  (u.username === 'operator' && u.password === 'kasir123');
-                return (
-                  <div
-                    key={u.id}
-                    className="flex items-center justify-between gap-2 border-t border-[#E5E5E0] pt-1.5 first:border-t-0 first:pt-0"
-                  >
-                    <span className="font-medium text-[#141413]">
-                      {u.displayName}{' '}
-                      <span className="text-[#6B6B65]">
-                        ({u.role === 'ADMIN' ? 'Admin' : 'Operator'})
-                      </span>
-                    </span>
-                    <span className="font-mono text-[#3F3F3B]">
-                      {u.username} / {isDemoPass ? u.password : '•••••• (Custom)'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           <a
             href="/Panduan-Lengkap-Sisstore.pdf"
             download="Panduan-Lengkap-Sisstore.pdf"
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[#E5E5E0] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#1E3A8A] transition-colors hover:bg-[#EFF6FF]"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-[#E5E5E0] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#1E3A8A] transition-colors hover:bg-[#EFF6FF]"
           >
             <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
             Unduh Buku Panduan Kasir &amp; Owner (PDF)

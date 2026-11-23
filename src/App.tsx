@@ -10,9 +10,12 @@ import {
 import {
   computeSyncSignature,
   type DriveMediaCategory,
+  isGasConfigReady,
   isValidAppsScriptUrl,
+  normalizeDriveFolderName,
   pingAppsScript,
   pullAllViaAppsScript,
+  shouldRunRealTimeAutoSync,
   syncAllViaAppsScript,
   uploadImageToDrive,
 } from './services/googleSheets';
@@ -38,9 +41,9 @@ import { type ActiveTab, Sidebar } from './components/Sidebar';
 import { StockOpnameTable } from './components/StockOpnameTable';
 
 const STORAGE_KEYS = {
-  items: 'sistor_items_v1',
-  transactions: 'sistor_transactions_v1',
-  reports: 'sistor_reports_v1',
+  items: 'sisstore_items_v2',
+  transactions: 'sisstore_transactions_v2',
+  reports: 'sisstore_reports_v2',
   settings: 'sistor_settings_v1',
   session: 'sistor_session_v1',
   theme: 'sisstore_theme_v1',
@@ -120,25 +123,9 @@ export default function App() {
     };
   });
 
-  const [currentUser, setCurrentUser] = useState<StoreUser | null>(() => {
-    const savedSession = readStored<StoreUser | null>(STORAGE_KEYS.session, null);
-    if (!savedSession) return null;
-    const storedSettings = readStored<Partial<StoreSettings>>(
-      STORAGE_KEYS.settings,
-      INITIAL_SETTINGS
-    );
-    const availableUsers =
-      Array.isArray(storedSettings.users) && storedSettings.users.length > 0
-        ? storedSettings.users
-        : INITIAL_USERS;
-    return (
-      availableUsers.find((u) => u.id === savedSession.id) || savedSession
-    );
-  });
+  const [currentUser, setCurrentUser] = useState<StoreUser | null>(null);
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>(() =>
-    currentUser?.role === 'ADMIN' ? 'dashboard' : 'kasir'
-  );
+  const [activeTab, setActiveTab] = useState<ActiveTab>('kasir');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [items, setItems] = useState<TShirtItem[]>(() =>
@@ -235,40 +222,51 @@ export default function App() {
   }, [settings]);
 
   useEffect(() => {
-    if (currentUser) {
-      window.localStorage.setItem(
-        STORAGE_KEYS.session,
-        JSON.stringify(currentUser)
-      );
-    } else {
+    try {
       window.localStorage.removeItem(STORAGE_KEYS.session);
+    } catch {
+      // Ignore storage failures
     }
-  }, [currentUser]);
+  }, []);
 
   const isAppsScriptConnected = isValidAppsScriptUrl(settings.appsScriptUrl);
 
-  const runSyncToSheets = useCallback(async (options?: { silent?: boolean }) => {
-    const snap = latestSyncSnapshotRef.current;
-    if (!isValidAppsScriptUrl(snap.settings.appsScriptUrl)) return;
+  const runSyncToSheets = useCallback(
+    async (options?: {
+      silent?: boolean;
+      overrideSettings?: StoreSettings;
+      customSuccessMessage?: string;
+    }): Promise<boolean> => {
+      const snap = latestSyncSnapshotRef.current;
+      const effectiveSettings = options?.overrideSettings ?? snap.settings;
+      if (!isValidAppsScriptUrl(effectiveSettings.appsScriptUrl)) {
+        return false;
+      }
 
-    if (syncInFlightRef.current) {
-      syncQueuedRef.current = true;
-      return;
-    }
+      if (syncInFlightRef.current) {
+        syncQueuedRef.current = true;
+        return false;
+      }
 
-    syncInFlightRef.current = true;
-    const silent = Boolean(options?.silent);
-    if (silent) {
-      setAutoSyncStatus('syncing');
-    } else {
-      setIsSyncing(true);
-      setSyncFeedback(null);
-    }
+      syncInFlightRef.current = true;
+      const silent = Boolean(options?.silent);
+      if (silent) {
+        setAutoSyncStatus('syncing');
+      } else {
+        setIsSyncing(true);
+        setSyncFeedback(null);
+      }
 
-    try {
-      const nextSettings = { ...snap.settings };
-      const folderName = nextSettings.driveFolderName || 'Sisstore_Media_Drive';
-      let mediaUploaded = false;
+      try {
+        const folderName = normalizeDriveFolderName(
+          effectiveSettings.driveFolderName
+        );
+        const nextSettings: StoreSettings = {
+          ...effectiveSettings,
+          driveFolderName: folderName,
+          autoSyncEnabled: effectiveSettings.autoSyncEnabled !== false,
+        };
+        let mediaUploaded = false;
 
       if (nextSettings.logoUrl?.startsWith('data:')) {
         const res = await uploadImageToDrive(nextSettings.appsScriptUrl, {
@@ -333,6 +331,7 @@ export default function App() {
 
       setSettings((prev) => ({
         ...prev,
+        ...nextSettings,
         ...(mediaUploaded
           ? {
               logoUrl: nextSettings.logoUrl,
@@ -349,9 +348,12 @@ export default function App() {
       if (!silent) {
         setSyncFeedback({
           type: 'success',
-          message: `Seluruh data 7 tab Spreadsheet & gambar Google Drive berhasil disinkronkan ke "${result.spreadsheetTitle}".`,
+          message:
+            options?.customSuccessMessage ||
+            `Seluruh 7 tab Spreadsheet & gambar Google Drive berhasil disinkronkan real-time ke "${result.spreadsheetTitle}".`,
         });
       }
+      return true;
     } catch (err: any) {
       setAutoSyncStatus('error');
       const errMsg =
@@ -362,6 +364,7 @@ export default function App() {
           ? `Sinkronisasi otomatis tertunda: ${errMsg}`
           : errMsg,
       });
+      return false;
     } finally {
       syncInFlightRef.current = false;
       if (!silent) {
@@ -370,14 +373,16 @@ export default function App() {
       if (syncQueuedRef.current) {
         syncQueuedRef.current = false;
         const latest = latestSyncSnapshotRef.current;
-        const latestSig = computeSyncSignature(
-          latest.items,
-          latest.transactions,
-          latest.reports,
-          latest.settings
-        );
-        if (latestSig !== lastSyncedSigRef.current) {
-          void runSyncToSheets({ silent: true });
+        if (shouldRunRealTimeAutoSync(latest.settings)) {
+          const latestSig = computeSyncSignature(
+            latest.items,
+            latest.transactions,
+            latest.reports,
+            latest.settings
+          );
+          if (latestSig !== lastSyncedSigRef.current) {
+            void runSyncToSheets({ silent: true });
+          }
         }
       }
     }
@@ -385,8 +390,10 @@ export default function App() {
 
   // Real-time background auto-sync whenever business data changes while Apps Script is connected
   useEffect(() => {
-    if (!isAppsScriptConnected) {
-      setAutoSyncStatus('idle');
+    if (!shouldRunRealTimeAutoSync(settings)) {
+      if (!isAppsScriptConnected) {
+        setAutoSyncStatus('idle');
+      }
       if (syncTimerRef.current !== null) {
         window.clearTimeout(syncTimerRef.current);
         syncTimerRef.current = null;
@@ -415,6 +422,25 @@ export default function App() {
       }
     };
   }, [items, transactions, reports, settings, isAppsScriptConnected, runSyncToSheets]);
+
+  // Auto-retry pending sync as soon as browser regains internet connectivity
+  useEffect(() => {
+    const handleOnline = () => {
+      const latest = latestSyncSnapshotRef.current;
+      if (!shouldRunRealTimeAutoSync(latest.settings)) return;
+      const latestSig = computeSyncSignature(
+        latest.items,
+        latest.transactions,
+        latest.reports,
+        latest.settings
+      );
+      if (latestSig !== lastSyncedSigRef.current || autoSyncStatus === 'error') {
+        void runSyncToSheets({ silent: true });
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [autoSyncStatus, runSyncToSheets]);
 
   const summary = useMemo(
     () => calculateOpnameSummary(items, transactions),
@@ -632,7 +658,7 @@ export default function App() {
     driveFolderName: string
   ) => {
     const cleanUrl = url.trim();
-    const cleanFolder = driveFolderName.trim() || 'Sisstore_Media_Drive';
+    const cleanFolder = normalizeDriveFolderName(driveFolderName);
     setIsSyncing(true);
     setSyncFeedback(null);
     try {
@@ -644,21 +670,21 @@ export default function App() {
         driveFolderUrl: info.driveFolderUrl,
         spreadsheetId: info.spreadsheetId,
         spreadsheetTitle: info.spreadsheetTitle,
+        autoSyncEnabled: true,
       };
-      // Prevent immediate overwrite on first connect so Admin can choose Push or Pull safely
-      lastSyncedSigRef.current = computeSyncSignature(
-        items,
-        transactions,
-        reports,
-        nextSettings
-      );
+      latestSyncSnapshotRef.current = {
+        ...latestSyncSnapshotRef.current,
+        settings: nextSettings,
+      };
       setSettings(nextSettings);
-      setAutoSyncStatus('synced');
-      setSyncFeedback({
-        type: 'success',
-        message: `Berhasil terhubung ke "${info.spreadsheetTitle}" dan folder Google Drive "${info.driveFolderName}". Auto-sync real-time aktif untuk perubahan data berikutnya.`,
+
+      await runSyncToSheets({
+        silent: false,
+        overrideSettings: nextSettings,
+        customSuccessMessage: `Terkoneksi real-time ke "${info.spreadsheetTitle}" & folder Drive "${info.driveFolderName || cleanFolder}". Seluruh 7 tab Spreadsheet langsung tersinkron dan auto-sync aktif.`,
       });
     } catch (err: any) {
+      setAutoSyncStatus('error');
       setSyncFeedback({
         type: 'error',
         message:
@@ -667,6 +693,74 @@ export default function App() {
       });
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  // 1-click instant automatic sync: saves/verifies URL + Folder if needed, turns on real-time auto-sync, and pushes immediately
+  const handleInstantAutoSync = async (
+    draftUrl?: string,
+    draftFolderName?: string
+  ) => {
+    const targetUrl = (draftUrl ?? settings.appsScriptUrl).trim();
+    const targetFolder = normalizeDriveFolderName(
+      draftFolderName ?? settings.driveFolderName
+    );
+
+    if (!isGasConfigReady(targetUrl, targetFolder)) {
+      setSyncFeedback({
+        type: 'error',
+        message:
+          'Isi URL Web App GAS (/exec) yang valid dan Nama Folder Google Drive terlebih dahulu sebelum menjalankan sinkronisasi otomatis.',
+      });
+      return;
+    }
+
+    const needsConnect =
+      !isAppsScriptConnected ||
+      !settings.spreadsheetId ||
+      settings.appsScriptUrl.trim() !== targetUrl ||
+      normalizeDriveFolderName(settings.driveFolderName) !== targetFolder;
+
+    if (needsConnect) {
+      await handleConnectAppsScript(targetUrl, targetFolder);
+      return;
+    }
+
+    const nextSettings: StoreSettings = {
+      ...settings,
+      autoSyncEnabled: true,
+    };
+    latestSyncSnapshotRef.current = {
+      ...latestSyncSnapshotRef.current,
+      settings: nextSettings,
+    };
+    setSettings(nextSettings);
+
+    await runSyncToSheets({
+      silent: false,
+      overrideSettings: nextSettings,
+      customSuccessMessage: `Sinkronisasi otomatis berhasil ke "${settings.spreadsheetTitle || 'Google Spreadsheet'}". Mode real-time aktif penuh.`,
+    });
+  };
+
+  const handleToggleAutoSync = () => {
+    const nextEnabled = settings.autoSyncEnabled === false;
+    setSettings((prev) => ({
+      ...prev,
+      autoSyncEnabled: nextEnabled,
+    }));
+    if (nextEnabled && isAppsScriptConnected) {
+      setSyncFeedback({
+        type: 'success',
+        message:
+          'Auto-Sync Real-Time diaktifkan kembali. Perubahan transaksi & stok akan otomatis tersinkron ke Spreadsheet.',
+      });
+    } else if (!nextEnabled) {
+      setSyncFeedback({
+        type: 'success',
+        message:
+          'Auto-Sync latar belakang dijeda sementara. Anda tetap dapat menekan tombol Sinkronisasi Otomatis kapan saja.',
+      });
     }
   };
 
@@ -763,6 +857,7 @@ export default function App() {
         logoUrl={settings.logoUrl}
         isAppsScriptConnected={isAppsScriptConnected}
         spreadsheetLinked={Boolean(settings.spreadsheetId)}
+        autoSyncEnabled={settings.autoSyncEnabled !== false}
         autoSyncStatus={autoSyncStatus}
         lastSyncedAt={settings.lastSyncedAt}
         mobileOpen={mobileMenuOpen}
@@ -834,7 +929,7 @@ export default function App() {
                 <button
                   type="button"
                   disabled={isSyncing}
-                  onClick={() => setHeaderPushConfirmOpen(true)}
+                  onClick={() => void handleInstantAutoSync()}
                   className="inline-flex items-center gap-2 whitespace-nowrap shrink-0 rounded-lg bg-[#1E3A8A] px-3 py-2 text-xs font-semibold text-white hover:bg-[#172554] disabled:opacity-60"
                 >
                   {autoSyncStatus === 'syncing' || isSyncing ? (
@@ -844,7 +939,7 @@ export default function App() {
                   )}
                   {isSyncing || autoSyncStatus === 'syncing'
                     ? 'Menyinkronkan...'
-                    : 'Sinkron ke Sheets'}
+                    : 'Sinkron Otomatis'}
                 </button>
               ) : (
                 <button
@@ -977,8 +1072,11 @@ export default function App() {
               reports={reports}
               isAppsScriptConnected={isAppsScriptConnected}
               isSyncing={isSyncing}
+              autoSyncStatus={autoSyncStatus}
               syncFeedback={syncFeedback}
               onConnectAppsScript={handleConnectAppsScript}
+              onInstantAutoSync={handleInstantAutoSync}
+              onToggleAutoSync={handleToggleAutoSync}
               onDisconnectAppsScript={handleDisconnectAppsScript}
               onPushToSheets={handlePushToSheets}
               onPullFromSheets={handlePullFromSheets}

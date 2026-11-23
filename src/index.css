@@ -23,6 +23,92 @@
 }
 
 /* ============================================================================
+   Login Background Apparel Vector Animation (Baju, Celana, Jaket)
+   ============================================================================ */
+.login-vector-navy {
+  color: rgba(30, 58, 138, 0.14);
+}
+
+.login-vector-ink {
+  color: rgba(20, 20, 19, 0.1);
+}
+
+.dark .login-vector-navy {
+  color: rgba(96, 165, 250, 0.16);
+}
+
+.dark .login-vector-ink {
+  color: rgba(243, 244, 246, 0.1);
+}
+
+@keyframes apparelMarquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes apparelMarqueeReverse {
+  0% {
+    transform: translate3d(-50%, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes apparelBob {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+.apparel-track {
+  animation-name: apparelMarquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.apparel-track-reverse {
+  animation-name: apparelMarqueeReverse;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.apparel-marquee-slow {
+  animation-duration: 38s;
+}
+
+.apparel-marquee-medium {
+  animation-duration: 28s;
+}
+
+.apparel-marquee-fast {
+  animation-duration: 22s;
+}
+
+.apparel-bob {
+  animation: apparelBob 4.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apparel-track,
+  .apparel-track-reverse,
+  .apparel-bob {
+    animation: none;
+  }
+}
+
+/* ============================================================================
    Mode Gelap (Dark Theme) — Global Palette & Surface Mapping
    ============================================================================ */
 html.dark {
@@ -216,11 +302,16 @@ html.dark body {
   color: #7d8594;
 }
 
-/* Keep Showcase Panel, Code Preview, QRIS Paper, & Printable Receipt Distinct */
-.dark .login-showcase-panel {
-  background-color: #0b0e14;
+/* Showcase Panel (Vibrant Sisstore Brand Blue), Code Preview, QRIS Paper, & Printable Receipt */
+.login-showcase-panel {
+  background: linear-gradient(145deg, #1e3a8a 0%, #1e40af 52%, #1d4ed8 100%);
   color: #ffffff;
-  border-right: 1px solid #232834;
+}
+
+.dark .login-showcase-panel {
+  background: linear-gradient(145deg, #172554 0%, #1e3a8a 58%, #1d4ed8 100%);
+  color: #ffffff;
+  border-right: 1px solid rgba(147, 197, 253, 0.22);
 }
 
 .dark pre {

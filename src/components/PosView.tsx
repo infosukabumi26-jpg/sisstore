@@ -117,11 +117,26 @@ export const PosView: React.FC<PosViewProps> = ({
   );
 
   const catalogSubtotal = useMemo(
-    () => cart.reduce((acc, row) => acc + row.item.hargaJual * row.qty, 0),
+    () =>
+      cart.reduce(
+        (acc, row) =>
+          row.item.hargaJual > 0 ? acc + row.item.hargaJual * row.qty : acc,
+        0
+      ),
     [cart]
   );
 
-  const negotiationDelta = subtotal - catalogSubtotal;
+  const negotiationDelta = useMemo(
+    () =>
+      cart.reduce(
+        (acc, row) =>
+          row.item.hargaJual > 0
+            ? acc + (row.customHargaJual - row.item.hargaJual) * row.qty
+            : acc,
+        0
+      ),
+    [cart]
+  );
 
   const totalHpp = useMemo(
     () => cart.reduce((acc, row) => acc + row.item.hpp * row.qty, 0),
@@ -201,6 +216,14 @@ export const PosView: React.FC<PosViewProps> = ({
 
     if (cart.length === 0) {
       setCheckoutError('Keranjang masih kosong. Pilih minimal 1 kaos.');
+      return;
+    }
+
+    const missingPriceRow = cart.find((r) => r.customHargaJual <= 0);
+    if (missingPriceRow) {
+      setCheckoutError(
+        `Isi Harga Jadi / pcs untuk "${missingPriceRow.item.nama} (${missingPriceRow.item.ukuran})" sebelum menyelesaikan penjualan.`
+      );
       return;
     }
 
@@ -504,7 +527,13 @@ export const PosView: React.FC<PosViewProps> = ({
                         </h3>
                         <div className="mt-2 flex items-baseline justify-between gap-2">
                           <span className="font-mono text-base font-bold tabular-nums text-[#141413]">
-                            {formatRupiah(item.hargaJual)}
+                            {item.hargaJual > 0 ? (
+                              formatRupiah(item.hargaJual)
+                            ) : (
+                              <span className="font-sans text-xs font-semibold text-[#1E3A8A]">
+                                Harga Jadi di Kasir
+                              </span>
+                            )}
                           </span>
                           <span
                             className={`font-mono text-xs tabular-nums ${
@@ -609,9 +638,16 @@ export const PosView: React.FC<PosViewProps> = ({
               ) : (
                 <ul className="divide-y divide-[#E5E5E0] max-h-64 overflow-y-auto">
                   {cart.map((row) => {
-                    const isNegotiated = row.customHargaJual !== row.item.hargaJual;
-                    const diffPerPcs = row.customHargaJual - row.item.hargaJual;
-                    const belowHpp = isAdmin && row.customHargaJual < row.item.hpp;
+                    const hasCatalogPrice = row.item.hargaJual > 0;
+                    const isNegotiated =
+                      hasCatalogPrice && row.customHargaJual !== row.item.hargaJual;
+                    const diffPerPcs = hasCatalogPrice
+                      ? row.customHargaJual - row.item.hargaJual
+                      : 0;
+                    const belowHpp =
+                      isAdmin &&
+                      row.customHargaJual > 0 &&
+                      row.customHargaJual < row.item.hpp;
 
                     return (
                       <li key={row.item.id} className="py-3 space-y-2">
@@ -621,8 +657,10 @@ export const PosView: React.FC<PosViewProps> = ({
                               {row.item.nama}
                             </div>
                             <div className="text-xs text-[#6B6B65] font-mono tabular-nums">
-                              {row.item.ukuran} · {row.item.warna} · Katalog{' '}
-                              {formatRupiah(row.item.hargaJual)}
+                              {row.item.ukuran} · {row.item.warna} ·{' '}
+                              {hasCatalogPrice
+                                ? `Katalog ${formatRupiah(row.item.hargaJual)}`
+                                : 'Harga manual saat bayar'}
                             </div>
                           </div>
 
@@ -671,18 +709,19 @@ export const PosView: React.FC<PosViewProps> = ({
                               type="number"
                               min={0}
                               step={500}
-                              value={row.customHargaJual}
+                              placeholder="Isi harga jadi"
+                              value={row.customHargaJual === 0 ? '' : row.customHargaJual}
                               aria-label={`Harga jadi per pcs ${row.item.sku}`}
                               onChange={(e) =>
                                 updateCartPrice(
                                   row.item.id,
-                                  Number(e.target.value)
+                                  e.target.value === '' ? 0 : Number(e.target.value)
                                 )
                               }
                               className={`w-28 rounded-md border px-2 py-1 font-mono text-xs font-semibold tabular-nums focus:outline-none ${
                                 belowHpp
                                   ? 'border-red-300 bg-red-50 text-[#B91C1C] focus:border-[#B91C1C]'
-                                  : isNegotiated
+                                  : isNegotiated || (!hasCatalogPrice && row.customHargaJual > 0)
                                   ? 'border-[#1E3A8A] bg-[#EFF6FF] text-[#1E3A8A] focus:border-[#1E3A8A]'
                                   : 'border-[#D6D6D0] bg-white text-[#141413] focus:border-[#1E3A8A]'
                               }`}
@@ -765,7 +804,7 @@ export const PosView: React.FC<PosViewProps> = ({
                 </div>
 
                 <div className="space-y-1.5 rounded-lg bg-[#F7F7F5] px-4 py-3 text-sm">
-                  {negotiationDelta !== 0 && (
+                  {catalogSubtotal > 0 && negotiationDelta !== 0 && (
                     <>
                       <div className="flex justify-between text-xs text-[#6B6B65]">
                         <span>Harga Katalog Normal</span>
@@ -1103,10 +1142,11 @@ export const PosView: React.FC<PosViewProps> = ({
                           .map((i) => {
                             const isNego =
                               i.hargaKatalog !== undefined &&
+                              i.hargaKatalog > 0 &&
                               i.hargaKatalog !== i.hargaJual;
-                            return `${i.nama} (${i.ukuran}) x${i.qty}${
-                              isNego ? ` @${formatRupiah(i.hargaJual)} [Harga Jadi]` : ''
-                            }`;
+                            return `${i.nama} (${i.ukuran}) x${i.qty} @${formatRupiah(
+                              i.hargaJual
+                            )}${isNego ? ' [Harga Jadi]' : ''}`;
                           })
                           .join(', ')}
                       </td>
@@ -1253,9 +1293,16 @@ export const PosView: React.FC<PosViewProps> = ({
                 <>
                   <ul className="divide-y divide-[#E5E5E0]">
                     {cart.map((row) => {
-                      const isNegotiated = row.customHargaJual !== row.item.hargaJual;
-                      const diffPerPcs = row.customHargaJual - row.item.hargaJual;
-                      const belowHpp = isAdmin && row.customHargaJual < row.item.hpp;
+                      const hasCatalogPrice = row.item.hargaJual > 0;
+                      const isNegotiated =
+                        hasCatalogPrice && row.customHargaJual !== row.item.hargaJual;
+                      const diffPerPcs = hasCatalogPrice
+                        ? row.customHargaJual - row.item.hargaJual
+                        : 0;
+                      const belowHpp =
+                        isAdmin &&
+                        row.customHargaJual > 0 &&
+                        row.customHargaJual < row.item.hpp;
 
                       return (
                         <li key={row.item.id} className="py-3 space-y-2">
@@ -1265,8 +1312,10 @@ export const PosView: React.FC<PosViewProps> = ({
                                 {row.item.nama}
                               </div>
                               <div className="text-xs text-[#6B6B65] font-mono tabular-nums">
-                                {row.item.ukuran} · {row.item.warna} · Katalog{' '}
-                                {formatRupiah(row.item.hargaJual)}
+                                {row.item.ukuran} · {row.item.warna} ·{' '}
+                                {hasCatalogPrice
+                                  ? `Katalog ${formatRupiah(row.item.hargaJual)}`
+                                  : 'Harga manual saat bayar'}
                               </div>
                             </div>
 
@@ -1314,18 +1363,19 @@ export const PosView: React.FC<PosViewProps> = ({
                                 type="number"
                                 min={0}
                                 step={500}
-                                value={row.customHargaJual}
+                                placeholder="Isi harga jadi"
+                                value={row.customHargaJual === 0 ? '' : row.customHargaJual}
                                 aria-label={`Harga jadi per pcs ${row.item.sku}`}
                                 onChange={(e) =>
                                   updateCartPrice(
                                     row.item.id,
-                                    Number(e.target.value)
+                                    e.target.value === '' ? 0 : Number(e.target.value)
                                   )
                                 }
                                 className={`w-28 rounded-md border px-2 py-1 font-mono text-xs font-semibold tabular-nums focus:outline-none ${
                                   belowHpp
                                     ? 'border-red-300 bg-red-50 text-[#B91C1C] focus:border-[#B91C1C]'
-                                    : isNegotiated
+                                    : isNegotiated || (!hasCatalogPrice && row.customHargaJual > 0)
                                     ? 'border-[#1E3A8A] bg-[#EFF6FF] text-[#1E3A8A] focus:border-[#1E3A8A]'
                                     : 'border-[#D6D6D0] bg-white text-[#141413] focus:border-[#1E3A8A]'
                                 }`}
@@ -1407,7 +1457,7 @@ export const PosView: React.FC<PosViewProps> = ({
                     </div>
 
                     <div className="space-y-1.5 rounded-lg bg-[#F7F7F5] px-4 py-3 text-sm">
-                      {negotiationDelta !== 0 && (
+                      {catalogSubtotal > 0 && negotiationDelta !== 0 && (
                         <>
                           <div className="flex justify-between text-xs text-[#6B6B65]">
                             <span>Harga Katalog Normal</span>

@@ -13,8 +13,10 @@ import {
   isGasConfigReady,
   isValidAppsScriptUrl,
   normalizeDriveFolderName,
+  parseMobileSetupParams,
   pingAppsScript,
   pullAllViaAppsScript,
+  shouldPreferPullOnConnect,
   shouldRunRealTimeAutoSync,
   syncAllViaAppsScript,
   uploadImageToDrive,
@@ -69,6 +71,12 @@ const TAB_TITLES: Record<ActiveTab, string> = {
 };
 
 export default function App() {
+  const [initialMobileSetup] = useState(() =>
+    typeof window !== 'undefined'
+      ? parseMobileSetupParams(window.location.search)
+      : null
+  );
+
   const [settings, setSettings] = useState<StoreSettings>(() => {
     const stored = readStored<Partial<StoreSettings>>(
       STORAGE_KEYS.settings,
@@ -99,7 +107,7 @@ export default function App() {
       !stored.receiptFooterNote ||
       stored.receiptFooterNote.includes('berbelanja di Sistor.');
 
-    return {
+    const baseSettings: StoreSettings = {
       ...INITIAL_SETTINGS,
       ...stored,
       storeName: isLegacySistorName ? INITIAL_SETTINGS.storeName : stored.storeName!,
@@ -121,6 +129,26 @@ export default function App() {
         : stored.receiptFooterNote!,
       users: mergedUsers,
     };
+
+    if (initialMobileSetup) {
+      const sameUrl =
+        baseSettings.appsScriptUrl.trim() === initialMobileSetup.appsScriptUrl;
+      return {
+        ...baseSettings,
+        appsScriptUrl: initialMobileSetup.appsScriptUrl,
+        driveFolderName: initialMobileSetup.driveFolderName,
+        autoSyncEnabled: true,
+        ...(sameUrl
+          ? {}
+          : {
+              spreadsheetId: '',
+              spreadsheetTitle: '',
+              driveFolderUrl: '',
+            }),
+      };
+    }
+
+    return baseSettings;
   });
 
   const [currentUser, setCurrentUser] = useState<StoreUser | null>(null);
@@ -183,6 +211,10 @@ export default function App() {
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [loginConnectionNotice, setLoginConnectionNotice] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const latestSyncSnapshotRef = useRef({
     items,
@@ -198,6 +230,7 @@ export default function App() {
   const syncInFlightRef = useRef(false);
   const syncQueuedRef = useRef(false);
   const syncTimerRef = useRef<number | null>(null);
+  const mobileSetupHandledRef = useRef(false);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.items, JSON.stringify(items));
@@ -449,12 +482,14 @@ export default function App() {
 
   const handleLoginSuccess = (user: StoreUser) => {
     setCurrentUser(user);
+    setLoginConnectionNotice(null);
     setActiveTab(user.role === 'ADMIN' ? 'dashboard' : 'kasir');
     setMobileMenuOpen(false);
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setLoginConnectionNotice(null);
     setMobileMenuOpen(false);
   };
 
@@ -478,6 +513,186 @@ export default function App() {
     return settings.users.find((u) => u.id === currentUser.id) || currentUser;
   }, [currentUser, settings.users]);
 
+  // Google Apps Script (Sheets + Drive) connection with fresh-device pull protection
+  const handleConnectAppsScript = useCallback(
+    async (
+      url: string,
+      driveFolderName: string,
+      options?: { isMobileOnboarding?: boolean }
+    ) => {
+      const cleanUrl = url.trim();
+      const cleanFolder = normalizeDriveFolderName(driveFolderName);
+      const currentSnap = latestSyncSnapshotRef.current;
+      const isFreshDeviceConnect =
+        Boolean(options?.isMobileOnboarding) ||
+        !currentSnap.settings.spreadsheetId ||
+        currentSnap.settings.appsScriptUrl.trim() !== cleanUrl;
+
+      setIsSyncing(true);
+      setSyncFeedback(null);
+      setAutoSyncStatus('syncing');
+      if (options?.isMobileOnboarding) {
+        setLoginConnectionNotice({
+          type: 'success',
+          message:
+            'Menghubungkan HP ke Google Spreadsheet & memuat data toko terbaru...',
+        });
+      }
+
+      try {
+        const info = await pingAppsScript(cleanUrl, cleanFolder);
+        const latestAfterPing = latestSyncSnapshotRef.current;
+
+        const connectedSettings: StoreSettings = {
+          ...latestAfterPing.settings,
+          appsScriptUrl: cleanUrl,
+          driveFolderName: info.driveFolderName || cleanFolder,
+          driveFolderUrl: info.driveFolderUrl,
+          spreadsheetId: info.spreadsheetId,
+          spreadsheetTitle: info.spreadsheetTitle,
+          autoSyncEnabled: true,
+        };
+
+        let pulled: Awaited<ReturnType<typeof pullAllViaAppsScript>> | null =
+          null;
+        try {
+          pulled = await pullAllViaAppsScript(cleanUrl);
+        } catch {
+          pulled = null;
+        }
+
+        const preferPull =
+          pulled !== null &&
+          shouldPreferPullOnConnect({
+            isFreshDeviceConnect,
+            localTransactionsCount: latestAfterPing.transactions.length,
+            localReportsCount: latestAfterPing.reports.length,
+            remoteItemsCount: pulled.items.length,
+            remoteTransactionsCount: pulled.transactions.length,
+            remoteReportsCount: pulled.reports.length,
+          });
+
+        if (preferPull && pulled) {
+          const hydratedItems =
+            pulled.items.length > 0 ? pulled.items : latestAfterPing.items;
+          const hydratedTransactions =
+            pulled.transactions.length > 0
+              ? pulled.transactions
+              : latestAfterPing.transactions;
+          const hydratedReports =
+            pulled.reports.length > 0
+              ? pulled.reports
+              : latestAfterPing.reports;
+          const hydratedSettings: StoreSettings = {
+            ...connectedSettings,
+            ...pulled.settingsPatch,
+            appsScriptUrl: cleanUrl,
+            driveFolderName:
+              pulled.settingsPatch.driveFolderName ||
+              info.driveFolderName ||
+              cleanFolder,
+            driveFolderUrl:
+              info.driveFolderUrl || connectedSettings.driveFolderUrl,
+            spreadsheetId: pulled.spreadsheetId || info.spreadsheetId,
+            spreadsheetTitle: pulled.spreadsheetTitle || info.spreadsheetTitle,
+            autoSyncEnabled: true,
+            lastSyncedAt: new Date().toISOString(),
+          };
+
+          lastSyncedSigRef.current = computeSyncSignature(
+            hydratedItems,
+            hydratedTransactions,
+            hydratedReports,
+            hydratedSettings
+          );
+          latestSyncSnapshotRef.current = {
+            items: hydratedItems,
+            transactions: hydratedTransactions,
+            reports: hydratedReports,
+            settings: hydratedSettings,
+          };
+
+          if (pulled.items.length > 0) setItems(hydratedItems);
+          if (pulled.transactions.length > 0)
+            setTransactions(hydratedTransactions);
+          if (pulled.reports.length > 0) setReports(hydratedReports);
+          setSettings(hydratedSettings);
+          setAutoSyncStatus('synced');
+
+          const pullMsg = `Perangkat terhubung real-time ke "${hydratedSettings.spreadsheetTitle}" & memuat ${pulled.items.length} produk, ${pulled.transactions.length} transaksi, dan pengaturan toko terbaru dari Google Sheets.`;
+          setSyncFeedback({ type: 'success', message: pullMsg });
+          if (options?.isMobileOnboarding) {
+            setLoginConnectionNotice({
+              type: 'success',
+              message: `HP terhubung otomatis ke "${hydratedSettings.spreadsheetTitle}" & memuat ${pulled.items.length} produk serta akun terbaru. Silakan login untuk mulai kasir.`,
+            });
+          }
+          return;
+        }
+
+        lastSyncedSigRef.current = computeSyncSignature(
+          latestAfterPing.items,
+          latestAfterPing.transactions,
+          latestAfterPing.reports,
+          connectedSettings
+        );
+        latestSyncSnapshotRef.current = {
+          ...latestAfterPing,
+          settings: connectedSettings,
+        };
+        setSettings(connectedSettings);
+
+        const pushed = await runSyncToSheets({
+          silent: false,
+          overrideSettings: connectedSettings,
+          customSuccessMessage: `Terkoneksi real-time ke "${info.spreadsheetTitle}" & folder Drive "${info.driveFolderName || cleanFolder}". Seluruh 7 tab Spreadsheet langsung tersinkron dan auto-sync aktif.`,
+        });
+
+        if (options?.isMobileOnboarding && pushed) {
+          setLoginConnectionNotice({
+            type: 'success',
+            message: `HP terhubung otomatis ke "${info.spreadsheetTitle}". Silakan login untuk mulai menggunakan aplikasi.`,
+          });
+        }
+      } catch (err: any) {
+        setAutoSyncStatus('error');
+        const errMessage =
+          err?.message || 'Gagal terhubung ke Web App Google Apps Script.';
+        setSyncFeedback({
+          type: 'error',
+          message: errMessage,
+        });
+        if (options?.isMobileOnboarding) {
+          setLoginConnectionNotice({
+            type: 'error',
+            message: `Gagal koneksi otomatis di HP: ${errMessage}`,
+          });
+        }
+      } finally {
+        setIsSyncing(false);
+      }
+    },
+    [runSyncToSheets]
+  );
+
+  // Auto-connect HP mobile when opened via 1-click setup link (?gas=...&folder=...)
+  useEffect(() => {
+    if (!initialMobileSetup || mobileSetupHandledRef.current) return;
+    mobileSetupHandledRef.current = true;
+
+    try {
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch {
+      // Ignore history API failures
+    }
+
+    void handleConnectAppsScript(
+      initialMobileSetup.appsScriptUrl,
+      initialMobileSetup.driveFolderName,
+      { isMobileOnboarding: true }
+    );
+  }, [initialMobileSetup, handleConnectAppsScript]);
+
   if (!resolvedUser) {
     return (
       <LoginView
@@ -487,6 +702,7 @@ export default function App() {
         logoUrl={settings.logoUrl}
         users={settings.users}
         theme={theme}
+        connectionNotice={loginConnectionNotice}
         onToggleTheme={handleToggleTheme}
         onLoginSuccess={handleLoginSuccess}
       />
@@ -652,49 +868,7 @@ export default function App() {
     return uploaded.directUrl;
   };
 
-  // Google Apps Script (Sheets + Drive) handlers
-  const handleConnectAppsScript = async (
-    url: string,
-    driveFolderName: string
-  ) => {
-    const cleanUrl = url.trim();
-    const cleanFolder = normalizeDriveFolderName(driveFolderName);
-    setIsSyncing(true);
-    setSyncFeedback(null);
-    try {
-      const info = await pingAppsScript(cleanUrl, cleanFolder);
-      const nextSettings: StoreSettings = {
-        ...settings,
-        appsScriptUrl: cleanUrl,
-        driveFolderName: info.driveFolderName || cleanFolder,
-        driveFolderUrl: info.driveFolderUrl,
-        spreadsheetId: info.spreadsheetId,
-        spreadsheetTitle: info.spreadsheetTitle,
-        autoSyncEnabled: true,
-      };
-      latestSyncSnapshotRef.current = {
-        ...latestSyncSnapshotRef.current,
-        settings: nextSettings,
-      };
-      setSettings(nextSettings);
-
-      await runSyncToSheets({
-        silent: false,
-        overrideSettings: nextSettings,
-        customSuccessMessage: `Terkoneksi real-time ke "${info.spreadsheetTitle}" & folder Drive "${info.driveFolderName || cleanFolder}". Seluruh 7 tab Spreadsheet langsung tersinkron dan auto-sync aktif.`,
-      });
-    } catch (err: any) {
-      setAutoSyncStatus('error');
-      setSyncFeedback({
-        type: 'error',
-        message:
-          err?.message ||
-          'Gagal terhubung ke Web App Google Apps Script.',
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
+  // Google Apps Script (Sheets + Drive) instant auto-sync & disconnect handlers
 
   // 1-click instant automatic sync: saves/verifies URL + Folder if needed, turns on real-time auto-sync, and pushes immediately
   const handleInstantAutoSync = async (

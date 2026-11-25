@@ -20,6 +20,7 @@ import {
   QrCode,
   RefreshCw,
   ShieldCheck,
+  Smartphone,
   Trash2,
   UserCheck,
   UserPlus,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react';
 import { SISTOR_APPS_SCRIPT_CODE } from '../data/appsScriptTemplate';
 import {
+  buildMobileSetupLink,
   type DriveMediaCategory,
   isGasConfigReady,
 } from '../services/googleSheets';
@@ -109,6 +111,7 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
     isAppsScriptConnected && settings.autoSyncEnabled !== false;
   const [showScriptCode, setShowScriptCode] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedMobileLink, setCopiedMobileLink] = useState(false);
   const [confirmAction, setConfirmAction] = useState<null | 'push' | 'pull'>(
     null
   );
@@ -162,6 +165,26 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
       window.setTimeout(() => setCopiedCode(false), 2500);
     } catch {
       setShowScriptCode(true);
+    }
+  };
+
+  const mobileSetupLink =
+    typeof window !== 'undefined'
+      ? buildMobileSetupLink(
+          window.location.origin,
+          settings.appsScriptUrl,
+          settings.driveFolderName
+        )
+      : '';
+
+  const handleCopyMobileSetupLink = async () => {
+    if (!mobileSetupLink) return;
+    try {
+      await navigator.clipboard.writeText(mobileSetupLink);
+      setCopiedMobileLink(true);
+      window.setTimeout(() => setCopiedMobileLink(false), 2800);
+    } catch {
+      // Fallback: ignore if clipboard unavailable
     }
   };
 
@@ -689,6 +712,45 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                       </a>
                     )}
                   </div>
+
+                  {mobileSetupLink && (
+                    <div className="mt-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 space-y-2">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1E3A8A]">
+                        <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                        Hubungkan HP Mobile / Perangkat Kasir Lain (1 Klik)
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-[#3F3F3B]">
+                        Pengaturan GAS tersimpan per browser. Salin atau kirim tautan ini lalu buka di browser HP Anda — HP akan langsung terhubung ke Spreadsheet &amp; memuat data terbaru otomatis tanpa ketik ulang URL.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCopyMobileSetupLink}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#BFDBFE] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#1E3A8A] hover:bg-[#DBEAFE]"
+                        >
+                          {copiedMobileLink ? (
+                            <Check className="h-3.5 w-3.5 text-[#15803D]" aria-hidden="true" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                          )}
+                          {copiedMobileLink
+                            ? 'Link Setup HP Disalin'
+                            : 'Salin Link Setup HP'}
+                        </button>
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent(
+                            `Link Setup Otomatis Kasir ${settings.storeName} (buka di HP untuk langsung terhubung ke Google Sheets): ${mobileSetupLink}`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#15803D] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#166534]"
+                        >
+                          <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                          Kirim ke WhatsApp HP
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="mt-2 text-xs text-[#6B6B65]">

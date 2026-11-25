@@ -80,6 +80,54 @@ export function shouldRunRealTimeAutoSync(settings: StoreSettings): boolean {
   );
 }
 
+export function buildMobileSetupLink(
+  origin: string,
+  appsScriptUrl: string,
+  driveFolderName: string
+): string {
+  const cleanUrl = appsScriptUrl.trim();
+  if (!isValidAppsScriptUrl(cleanUrl)) return '';
+  const baseOrigin = origin.replace(/\/+$/, '');
+  const folder = encodeURIComponent(normalizeDriveFolderName(driveFolderName));
+  return `${baseOrigin}/?gas=${encodeURIComponent(cleanUrl)}&folder=${folder}`;
+}
+
+export function parseMobileSetupParams(
+  search: string
+): { appsScriptUrl: string; driveFolderName: string } | null {
+  try {
+    const params = new URLSearchParams(search);
+    const rawGas = (params.get('gas') || '').trim();
+    if (!isValidAppsScriptUrl(rawGas)) return null;
+    const rawFolder = (params.get('folder') || '').trim();
+    return {
+      appsScriptUrl: rawGas,
+      driveFolderName: normalizeDriveFolderName(rawFolder),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function shouldPreferPullOnConnect(params: {
+  isFreshDeviceConnect: boolean;
+  localTransactionsCount: number;
+  localReportsCount: number;
+  remoteItemsCount: number;
+  remoteTransactionsCount: number;
+  remoteReportsCount: number;
+}): boolean {
+  if (!params.isFreshDeviceConnect) return false;
+  if (params.localTransactionsCount > 0 || params.localReportsCount > 0) {
+    return false;
+  }
+  return (
+    params.remoteItemsCount > 0 ||
+    params.remoteTransactionsCount > 0 ||
+    params.remoteReportsCount > 0
+  );
+}
+
 export function parseDataUrl(
   dataUrl: string
 ): { mimeType: string; base64: string; ext: string } | null {

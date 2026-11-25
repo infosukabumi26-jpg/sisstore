@@ -19,6 +19,7 @@ interface LoginViewProps {
   logoUrl?: string;
   users: StoreUser[];
   theme?: 'light' | 'dark';
+  connectionNotice?: { type: 'success' | 'error'; message: string } | null;
   onToggleTheme?: () => void;
   onLoginSuccess: (user: StoreUser) => void;
 }
@@ -66,6 +67,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
   logoUrl,
   users,
   theme = 'light',
+  connectionNotice,
   onToggleTheme,
   onLoginSuccess,
 }) => {
@@ -302,6 +304,19 @@ export const LoginView: React.FC<LoginViewProps> = ({
               </button>
             )}
           </div>
+
+          {connectionNotice && (
+            <div
+              role="status"
+              className={`mt-4 rounded-lg border px-3.5 py-2.5 text-xs font-medium ${
+                connectionNotice.type === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-[#15803D]'
+                  : 'border-red-200 bg-red-50 text-[#B91C1C]'
+              }`}
+            >
+              {connectionNotice.message}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>

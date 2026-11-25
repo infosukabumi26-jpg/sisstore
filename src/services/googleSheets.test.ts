@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildAllSheetRows,
+  buildMobileSetupLink,
   computeSyncSignature,
   isGasConfigReady,
   isValidAppsScriptUrl,
@@ -9,8 +10,10 @@ import {
   parseDataUrl,
   parseKatalogRows,
   parseLaporanRows,
+  parseMobileSetupParams,
   parseSettingsRows,
   parseTransaksiRows,
+  shouldPreferPullOnConnect,
   shouldRunRealTimeAutoSync,
 } from './googleSheets.ts';
 import type {
@@ -251,6 +254,68 @@ test('isGasConfigReady, normalizeDriveFolderName, and shouldRunRealTimeAutoSync 
   );
   assert.equal(
     shouldRunRealTimeAutoSync({ ...SAMPLE_SETTINGS, appsScriptUrl: '' }),
+    false
+  );
+});
+
+test('buildMobileSetupLink and parseMobileSetupParams round-trip GAS URL and Drive folder', () => {
+  const link = buildMobileSetupLink(
+    'https://sisstore.example.com/',
+    'https://script.google.com/macros/s/AKfycb123/exec',
+    'Sisstore_Mobile_Drive'
+  );
+  assert.ok(link.startsWith('https://sisstore.example.com/?gas='));
+
+  const query = link.slice(link.indexOf('?'));
+  assert.deepEqual(parseMobileSetupParams(query), {
+    appsScriptUrl: 'https://script.google.com/macros/s/AKfycb123/exec',
+    driveFolderName: 'Sisstore_Mobile_Drive',
+  });
+
+  assert.equal(
+    buildMobileSetupLink('https://sisstore.example.com', 'https://bad.url/dev', 'Folder'),
+    ''
+  );
+  assert.equal(parseMobileSetupParams('?gas=https://script.google.com/macros/s/abc/dev'), null);
+});
+
+test('shouldPreferPullOnConnect protects Desktop spreadsheet data when linking a fresh mobile device', () => {
+  // Fresh mobile connecting to populated Desktop spreadsheet -> pull remote data
+  assert.equal(
+    shouldPreferPullOnConnect({
+      isFreshDeviceConnect: true,
+      localTransactionsCount: 0,
+      localReportsCount: 0,
+      remoteItemsCount: 10,
+      remoteTransactionsCount: 2,
+      remoteReportsCount: 0,
+    }),
+    true
+  );
+
+  // Desktop connecting to empty brand-new spreadsheet -> push initial tabs
+  assert.equal(
+    shouldPreferPullOnConnect({
+      isFreshDeviceConnect: true,
+      localTransactionsCount: 0,
+      localReportsCount: 0,
+      remoteItemsCount: 0,
+      remoteTransactionsCount: 0,
+      remoteReportsCount: 0,
+    }),
+    false
+  );
+
+  // Already-linked Desktop re-testing connection -> push local edits
+  assert.equal(
+    shouldPreferPullOnConnect({
+      isFreshDeviceConnect: false,
+      localTransactionsCount: 0,
+      localReportsCount: 0,
+      remoteItemsCount: 10,
+      remoteTransactionsCount: 0,
+      remoteReportsCount: 0,
+    }),
     false
   );
 });

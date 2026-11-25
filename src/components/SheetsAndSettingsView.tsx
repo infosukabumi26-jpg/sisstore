@@ -751,8 +751,8 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                       </div>
                       <p className="text-[11px] leading-relaxed text-[#3F3F3B]">
                         {isGlobalEnvMatch
-                          ? 'Pengaturan GAS sudah tertanam global di Environment Variable server — semua HP, tablet, dan komputer lain yang membuka URL website ini langsung otomatis terhubung.'
-                          : 'Pengaturan di form atas hanya tersimpan di browser perangkat ini. Untuk menghubungkan HP, tablet, atau komputer lain secara otomatis, gunakan Link 1-Klik di bawah atau simpan ke Environment Variables Vercel agar permanen di semua perangkat.'}
+                          ? 'Pengaturan GAS sudah tertanam global di Environment Variable server tanpa localStorage — semua HP, tablet, dan komputer lain yang membuka URL website ini langsung otomatis terhubung.'
+                          : 'Aplikasi tidak menyimpan data di localStorage browser (seluruh data live dari Google Sheets & Drive). Agar HP, tablet, atau komputer lain langsung terhubung otomatis saat dibuka, kirim Link Setup 1-Klik di bawah atau simpan ke Environment Variables Vercel.'}
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
                         <button

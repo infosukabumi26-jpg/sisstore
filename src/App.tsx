@@ -43,25 +43,6 @@ import { SheetsAndSettingsView } from './components/SheetsAndSettingsView';
 import { type ActiveTab, Sidebar } from './components/Sidebar';
 import { StockOpnameTable } from './components/StockOpnameTable';
 
-const STORAGE_KEYS = {
-  items: 'sisstore_items_v2',
-  transactions: 'sisstore_transactions_v2',
-  reports: 'sisstore_reports_v2',
-  settings: 'sistor_settings_v1',
-  session: 'sistor_session_v1',
-  theme: 'sisstore_theme_v1',
-};
-
-function readStored<T>(key: string, fallback: T): T {
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 const TAB_TITLES: Record<ActiveTab, string> = {
   dashboard: 'Dashboard Pemilik (Owner)',
   kasir: 'Kasir Penjualan',
@@ -79,84 +60,20 @@ export default function App() {
   );
 
   const [settings, setSettings] = useState<StoreSettings>(() => {
-    const stored = readStored<Partial<StoreSettings>>(
-      STORAGE_KEYS.settings,
-      INITIAL_SETTINGS
-    );
-    const mergedUsers =
-      Array.isArray(stored.users) && stored.users.length > 0
-        ? stored.users.map((u) =>
-            u.displayName === 'Pemilik Sistor'
-              ? { ...u, displayName: 'Pemilik Sisstore' }
-              : u
-          )
-        : INITIAL_USERS;
-
-    const isLegacySistorName = !stored.storeName || stored.storeName === 'Sistor';
-    const isLegacyTagline =
-      !stored.storeTagline || stored.storeTagline === 'Apparel & Heavyweight Tees';
-    const isLegacyAddress =
-      !stored.storeAddress ||
-      stored.storeAddress === 'Jl. R.E. Martadinata No. 48, Sukabumi';
-    const isLegacyLogo = !stored.logoUrl;
-    const isLegacyFolder =
-      !stored.driveFolderName || stored.driveFolderName === 'Sistor_Media_Drive';
-    const isLegacyQrisMerchant =
-      !stored.qrisMerchantName ||
-      stored.qrisMerchantName === 'SISTOR APPAREL STORE';
-    const isLegacyFooter =
-      !stored.receiptFooterNote ||
-      stored.receiptFooterNote.includes('berbelanja di Sistor.');
-
     const envGasDefaults = getDefaultEnvGasConfig();
-    const resolvedGasUrl = stored.appsScriptUrl?.trim()
-      ? stored.appsScriptUrl.trim()
-      : envGasDefaults.appsScriptUrl;
-    const resolvedFolder = isLegacyFolder
-      ? envGasDefaults.driveFolderName || INITIAL_SETTINGS.driveFolderName
-      : stored.driveFolderName!;
+    const resolvedGasUrl =
+      initialMobileSetup?.appsScriptUrl || envGasDefaults.appsScriptUrl || '';
+    const resolvedFolder =
+      initialMobileSetup?.driveFolderName ||
+      envGasDefaults.driveFolderName ||
+      INITIAL_SETTINGS.driveFolderName;
 
-    const baseSettings: StoreSettings = {
+    return {
       ...INITIAL_SETTINGS,
-      ...stored,
-      storeName: isLegacySistorName ? INITIAL_SETTINGS.storeName : stored.storeName!,
-      storeTagline: isLegacyTagline
-        ? INITIAL_SETTINGS.storeTagline
-        : stored.storeTagline!,
-      storeAddress: isLegacyAddress
-        ? INITIAL_SETTINGS.storeAddress
-        : stored.storeAddress!,
-      logoUrl: isLegacyLogo ? INITIAL_SETTINGS.logoUrl : stored.logoUrl,
-      driveFolderName: resolvedFolder,
       appsScriptUrl: resolvedGasUrl,
-      qrisMerchantName: isLegacyQrisMerchant
-        ? INITIAL_SETTINGS.qrisMerchantName
-        : stored.qrisMerchantName!,
-      receiptFooterNote: isLegacyFooter
-        ? INITIAL_SETTINGS.receiptFooterNote
-        : stored.receiptFooterNote!,
-      users: mergedUsers,
+      driveFolderName: resolvedFolder,
+      autoSyncEnabled: true,
     };
-
-    if (initialMobileSetup) {
-      const sameUrl =
-        baseSettings.appsScriptUrl.trim() === initialMobileSetup.appsScriptUrl;
-      return {
-        ...baseSettings,
-        appsScriptUrl: initialMobileSetup.appsScriptUrl,
-        driveFolderName: initialMobileSetup.driveFolderName,
-        autoSyncEnabled: true,
-        ...(sameUrl
-          ? {}
-          : {
-              spreadsheetId: '',
-              spreadsheetTitle: '',
-              driveFolderUrl: '',
-            }),
-      };
-    }
-
-    return baseSettings;
   });
 
   const [currentUser, setCurrentUser] = useState<StoreUser | null>(null);
@@ -164,46 +81,18 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('kasir');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [items, setItems] = useState<TShirtItem[]>(() =>
-    readStored(STORAGE_KEYS.items, INITIAL_ITEMS).map((item) =>
-      item.nama.startsWith('Sistor ')
-        ? { ...item, nama: item.nama.replace(/^Sistor /, 'Sisstore ') }
-        : item
-    )
+  const [items, setItems] = useState<TShirtItem[]>(() => INITIAL_ITEMS);
+  const [transactions, setTransactions] = useState<SaleTransaction[]>(
+    () => INITIAL_TRANSACTIONS
   );
-  const [transactions, setTransactions] = useState<SaleTransaction[]>(() =>
-    readStored(STORAGE_KEYS.transactions, INITIAL_TRANSACTIONS).map((tx) => ({
-      ...tx,
-      kasir: tx.kasir === 'Pemilik Sistor' ? 'Pemilik Sisstore' : tx.kasir,
-      items: tx.items.map((line) =>
-        line.nama.startsWith('Sistor ')
-          ? { ...line, nama: line.nama.replace(/^Sistor /, 'Sisstore ') }
-          : line
-      ),
-    }))
-  );
-  const [reports, setReports] = useState<OpnameReport[]>(() =>
-    readStored(STORAGE_KEYS.reports, INITIAL_REPORTS)
-  );
+  const [reports, setReports] = useState<OpnameReport[]>(() => INITIAL_REPORTS);
 
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEYS.theme);
-      return saved === 'dark' ? 'dark' : 'light';
-    } catch {
-      return 'light';
-    }
-  });
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('dark', theme === 'dark');
     root.style.colorScheme = theme;
-    try {
-      window.localStorage.setItem(STORAGE_KEYS.theme, theme);
-    } catch {
-      // Ignore storage failures
-    }
   }, [theme]);
 
   const handleToggleTheme = useCallback(() => {
@@ -242,36 +131,6 @@ export default function App() {
   const lastPulledAtRef = useRef(0);
   const mobileSetupHandledRef = useRef(false);
   const startupSyncHandledRef = useRef(false);
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEYS.items, JSON.stringify(items));
-  }, [items]);
-
-  useEffect(() => {
-    window.localStorage.setItem(
-      STORAGE_KEYS.transactions,
-      JSON.stringify(transactions)
-    );
-  }, [transactions]);
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEYS.reports, JSON.stringify(reports));
-  }, [reports]);
-
-  useEffect(() => {
-    window.localStorage.setItem(
-      STORAGE_KEYS.settings,
-      JSON.stringify(settings)
-    );
-  }, [settings]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.removeItem(STORAGE_KEYS.session);
-    } catch {
-      // Ignore storage failures
-    }
-  }, []);
 
   const isAppsScriptConnected = isValidAppsScriptUrl(settings.appsScriptUrl);
 
@@ -553,11 +412,29 @@ export default function App() {
       try {
         const info = await pingAppsScript(cleanUrl, cleanFolder);
         const latestAfterPing = latestSyncSnapshotRef.current;
+        const resolvedFolderName = info.driveFolderName || cleanFolder;
+
+        // Keep GAS parameters in URL when not using global env var so browser refresh stays connected without localStorage
+        const envGas = getDefaultEnvGasConfig();
+        try {
+          if (envGas.appsScriptUrl === cleanUrl) {
+            window.history.replaceState({}, '', window.location.pathname);
+          } else {
+            const nextQuery = `?gas=${encodeURIComponent(cleanUrl)}&folder=${encodeURIComponent(resolvedFolderName)}`;
+            window.history.replaceState(
+              {},
+              '',
+              `${window.location.pathname}${nextQuery}`
+            );
+          }
+        } catch {
+          // Ignore history API failures
+        }
 
         const connectedSettings: StoreSettings = {
           ...latestAfterPing.settings,
           appsScriptUrl: cleanUrl,
-          driveFolderName: info.driveFolderName || cleanFolder,
+          driveFolderName: resolvedFolderName,
           driveFolderUrl: info.driveFolderUrl,
           spreadsheetId: info.spreadsheetId,
           spreadsheetTitle: info.spreadsheetTitle,
@@ -776,12 +653,6 @@ export default function App() {
       if (mobileSetupHandledRef.current) return;
       mobileSetupHandledRef.current = true;
       startupSyncHandledRef.current = true;
-
-      try {
-        window.history.replaceState({}, '', window.location.pathname);
-      } catch {
-        // Ignore history API failures
-      }
 
       void handleConnectAppsScript(
         initialMobileSetup.appsScriptUrl,
@@ -1066,6 +937,11 @@ export default function App() {
   };
 
   const handleDisconnectAppsScript = () => {
+    try {
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch {
+      // Ignore history API failures
+    }
     setSettings((prev) => ({
       ...prev,
       appsScriptUrl: '',
@@ -1076,7 +952,8 @@ export default function App() {
     setAutoSyncStatus('idle');
     setSyncFeedback({
       type: 'success',
-      message: 'Koneksi Apps Script diputuskan. Aplikasi tetap berjalan dalam mode lokal.',
+      message:
+        'Koneksi Apps Script diputuskan. Sambungkan kembali URL GAS untuk menyimpan dan menyinkronkan data ke Google Sheets & Drive.',
     });
   };
 

@@ -226,7 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : spreadsheetLinked
                 ? 'Auto-Sync Real-Time Aktif'
                 : 'Apps Script siap sinkron'
-              : 'Penyimpanan lokal aktif'}
+              : 'Belum terhubung ke Sheets'}
           </div>
           {isAdmin && (
             <button

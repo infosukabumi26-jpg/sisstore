@@ -80,6 +80,25 @@ export function shouldRunRealTimeAutoSync(settings: StoreSettings): boolean {
   );
 }
 
+export function getDefaultEnvGasConfig(
+  envOverride?: Record<string, unknown>
+): { appsScriptUrl: string; driveFolderName: string } {
+  const envObj =
+    envOverride ??
+    ((import.meta as unknown as { env?: Record<string, unknown> }).env || {});
+  const rawUrl = String(
+    envObj.VITE_APPS_SCRIPT_URL || envObj.VITE_DEFAULT_APPS_SCRIPT_URL || ''
+  ).trim();
+  const rawFolder = String(
+    envObj.VITE_DRIVE_FOLDER_NAME || envObj.VITE_DEFAULT_DRIVE_FOLDER || ''
+  ).trim();
+
+  return {
+    appsScriptUrl: isValidAppsScriptUrl(rawUrl) ? rawUrl : '',
+    driveFolderName: normalizeDriveFolderName(rawFolder),
+  };
+}
+
 export function buildMobileSetupLink(
   origin: string,
   appsScriptUrl: string,

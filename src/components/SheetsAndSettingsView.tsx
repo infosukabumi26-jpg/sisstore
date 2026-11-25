@@ -30,6 +30,7 @@ import { SISTOR_APPS_SCRIPT_CODE } from '../data/appsScriptTemplate';
 import {
   buildMobileSetupLink,
   type DriveMediaCategory,
+  getDefaultEnvGasConfig,
   isGasConfigReady,
 } from '../services/googleSheets';
 import type {
@@ -112,6 +113,8 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
   const [showScriptCode, setShowScriptCode] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedMobileLink, setCopiedMobileLink] = useState(false);
+  const [copiedEnvVars, setCopiedEnvVars] = useState(false);
+  const [showGlobalEnvBox, setShowGlobalEnvBox] = useState(false);
   const [confirmAction, setConfirmAction] = useState<null | 'push' | 'pull'>(
     null
   );
@@ -168,6 +171,15 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
     }
   };
 
+  const defaultEnvGas = getDefaultEnvGasConfig();
+  const isGlobalEnvMatch =
+    Boolean(defaultEnvGas.appsScriptUrl) &&
+    defaultEnvGas.appsScriptUrl === settings.appsScriptUrl.trim();
+
+  const vercelEnvSnippet = settings.appsScriptUrl.trim()
+    ? `VITE_APPS_SCRIPT_URL=${settings.appsScriptUrl.trim()}\nVITE_DRIVE_FOLDER_NAME=${settings.driveFolderName || 'Sisstore_Media_Drive'}`
+    : '';
+
   const mobileSetupLink =
     typeof window !== 'undefined'
       ? buildMobileSetupLink(
@@ -185,6 +197,17 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
       window.setTimeout(() => setCopiedMobileLink(false), 2800);
     } catch {
       // Fallback: ignore if clipboard unavailable
+    }
+  };
+
+  const handleCopyEnvSnippet = async () => {
+    if (!vercelEnvSnippet) return;
+    try {
+      await navigator.clipboard.writeText(vercelEnvSnippet);
+      setCopiedEnvVars(true);
+      window.setTimeout(() => setCopiedEnvVars(false), 2800);
+    } catch {
+      setShowGlobalEnvBox(true);
     }
   };
 
@@ -714,13 +737,22 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                   </div>
 
                   {mobileSetupLink && (
-                    <div className="mt-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 space-y-2">
-                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1E3A8A]">
-                        <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
-                        Hubungkan HP Mobile / Perangkat Kasir Lain (1 Klik)
+                    <div className="mt-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1E3A8A]">
+                          <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                          Aktifkan di HP, Tablet &amp; Komputer Lain
+                        </div>
+                        {isGlobalEnvMatch && (
+                          <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-[#15803D]">
+                            Aktif Global (Env Var)
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] leading-relaxed text-[#3F3F3B]">
-                        Pengaturan GAS tersimpan per browser. Salin atau kirim tautan ini lalu buka di browser HP Anda — HP akan langsung terhubung ke Spreadsheet &amp; memuat data terbaru otomatis tanpa ketik ulang URL.
+                        {isGlobalEnvMatch
+                          ? 'Pengaturan GAS sudah tertanam global di Environment Variable server — semua HP, tablet, dan komputer lain yang membuka URL website ini langsung otomatis terhubung.'
+                          : 'Pengaturan di form atas hanya tersimpan di browser perangkat ini. Untuk menghubungkan HP, tablet, atau komputer lain secara otomatis, gunakan Link 1-Klik di bawah atau simpan ke Environment Variables Vercel agar permanen di semua perangkat.'}
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
                         <button
@@ -739,7 +771,7 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                         </button>
                         <a
                           href={`https://wa.me/?text=${encodeURIComponent(
-                            `Link Setup Otomatis Kasir ${settings.storeName} (buka di HP untuk langsung terhubung ke Google Sheets): ${mobileSetupLink}`
+                            `Link Setup Otomatis Kasir ${settings.storeName} (buka di HP/Tablet/PC lain untuk langsung terhubung ke Google Sheets): ${mobileSetupLink}`
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -748,7 +780,51 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                           <ExternalLink className="h-3 w-3" aria-hidden="true" />
                           Kirim ke WhatsApp HP
                         </a>
+                        {!isGlobalEnvMatch && vercelEnvSnippet && (
+                          <button
+                            type="button"
+                            onClick={() => setShowGlobalEnvBox((v) => !v)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#BFDBFE] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#3F3F3B] hover:bg-[#DBEAFE]"
+                          >
+                            {showGlobalEnvBox
+                              ? 'Tutup Setup Permanen Vercel'
+                              : 'Setting Permanen Semua Perangkat'}
+                          </button>
+                        )}
                       </div>
+
+                      {!isGlobalEnvMatch && showGlobalEnvBox && vercelEnvSnippet && (
+                        <div className="rounded-lg border border-[#BFDBFE] bg-white p-2.5 space-y-2">
+                          <div className="text-[11px] font-semibold text-[#141413]">
+                            Agar otomatis ter-setting di semua HP, tablet &amp; komputer saat membuka URL website:
+                          </div>
+                          <ol className="list-decimal pl-4 text-[11px] leading-relaxed text-[#52524E] space-y-0.5">
+                            <li>
+                              Buka dashboard <strong>Vercel → Project Settings → Environment Variables</strong>.
+                            </li>
+                            <li>
+                              Tambahkan 2 variabel berikut lalu klik <strong>Redeploy</strong>:
+                            </li>
+                          </ol>
+                          <pre className="overflow-x-auto rounded border border-[#E5E5E0] bg-[#141413] p-2 font-mono text-[10px] text-[#F7F7F5]">
+                            {vercelEnvSnippet}
+                          </pre>
+                          <button
+                            type="button"
+                            onClick={handleCopyEnvSnippet}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-[#E5E5E0] bg-[#F7F7F5] px-2.5 py-1 text-[11px] font-semibold text-[#1E3A8A] hover:bg-[#EBEBE6]"
+                          >
+                            {copiedEnvVars ? (
+                              <Check className="h-3 w-3 text-[#15803D]" aria-hidden="true" />
+                            ) : (
+                              <Copy className="h-3 w-3" aria-hidden="true" />
+                            )}
+                            {copiedEnvVars
+                              ? 'Variabel Vercel Disalin'
+                              : 'Salin 2 Variabel Vercel'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

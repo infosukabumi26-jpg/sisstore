@@ -5,6 +5,9 @@ import type {
   StoreUser,
   TShirtItem,
 } from '../types/sistor';
+import { getDefaultEnvGasConfig } from '../services/googleSheets';
+
+const DEFAULT_ENV_GAS = getDefaultEnvGasConfig();
 
 export const INITIAL_USERS: StoreUser[] = [
   {
@@ -241,8 +244,8 @@ export const INITIAL_SETTINGS: StoreSettings = {
     },
   ],
   users: INITIAL_USERS,
-  appsScriptUrl: '',
-  driveFolderName: 'Sisstore_Media_Drive',
+  appsScriptUrl: DEFAULT_ENV_GAS.appsScriptUrl,
+  driveFolderName: DEFAULT_ENV_GAS.driveFolderName,
   driveFolderUrl: '',
   spreadsheetId: '',
   spreadsheetTitle: '',

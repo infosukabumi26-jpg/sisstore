@@ -4,6 +4,7 @@ import {
   buildAllSheetRows,
   buildMobileSetupLink,
   computeSyncSignature,
+  getDefaultEnvGasConfig,
   isGasConfigReady,
   isValidAppsScriptUrl,
   normalizeDriveFolderName,
@@ -319,3 +320,28 @@ test('shouldPreferPullOnConnect protects Desktop spreadsheet data when linking a
     false
   );
 });
+
+test('getDefaultEnvGasConfig reads valid VITE_APPS_SCRIPT_URL and rejects invalid URLs', () => {
+  assert.deepEqual(
+    getDefaultEnvGasConfig({
+      VITE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbEnv123/exec',
+      VITE_DRIVE_FOLDER_NAME: 'Sisstore_Global_Drive',
+    }),
+    {
+      appsScriptUrl: 'https://script.google.com/macros/s/AKfycbEnv123/exec',
+      driveFolderName: 'Sisstore_Global_Drive',
+    }
+  );
+
+  assert.deepEqual(
+    getDefaultEnvGasConfig({
+      VITE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbBad/dev',
+      VITE_DRIVE_FOLDER_NAME: '   ',
+    }),
+    {
+      appsScriptUrl: '',
+      driveFolderName: 'Sisstore_Media_Drive',
+    }
+  );
+});
+

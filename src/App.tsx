@@ -10,6 +10,7 @@ import {
 import {
   computeSyncSignature,
   type DriveMediaCategory,
+  getDefaultEnvGasConfig,
   isGasConfigReady,
   isValidAppsScriptUrl,
   normalizeDriveFolderName,
@@ -107,6 +108,14 @@ export default function App() {
       !stored.receiptFooterNote ||
       stored.receiptFooterNote.includes('berbelanja di Sistor.');
 
+    const envGasDefaults = getDefaultEnvGasConfig();
+    const resolvedGasUrl = stored.appsScriptUrl?.trim()
+      ? stored.appsScriptUrl.trim()
+      : envGasDefaults.appsScriptUrl;
+    const resolvedFolder = isLegacyFolder
+      ? envGasDefaults.driveFolderName || INITIAL_SETTINGS.driveFolderName
+      : stored.driveFolderName!;
+
     const baseSettings: StoreSettings = {
       ...INITIAL_SETTINGS,
       ...stored,
@@ -118,9 +127,8 @@ export default function App() {
         ? INITIAL_SETTINGS.storeAddress
         : stored.storeAddress!,
       logoUrl: isLegacyLogo ? INITIAL_SETTINGS.logoUrl : stored.logoUrl,
-      driveFolderName: isLegacyFolder
-        ? INITIAL_SETTINGS.driveFolderName
-        : stored.driveFolderName!,
+      driveFolderName: resolvedFolder,
+      appsScriptUrl: resolvedGasUrl,
       qrisMerchantName: isLegacyQrisMerchant
         ? INITIAL_SETTINGS.qrisMerchantName
         : stored.qrisMerchantName!,
@@ -230,7 +238,10 @@ export default function App() {
   const syncInFlightRef = useRef(false);
   const syncQueuedRef = useRef(false);
   const syncTimerRef = useRef<number | null>(null);
+  const pullInFlightRef = useRef(false);
+  const lastPulledAtRef = useRef(0);
   const mobileSetupHandledRef = useRef(false);
+  const startupSyncHandledRef = useRef(false);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.items, JSON.stringify(items));
@@ -624,7 +635,7 @@ export default function App() {
           if (options?.isMobileOnboarding) {
             setLoginConnectionNotice({
               type: 'success',
-              message: `HP terhubung otomatis ke "${hydratedSettings.spreadsheetTitle}" & memuat ${pulled.items.length} produk serta akun terbaru. Silakan login untuk mulai kasir.`,
+              message: `Perangkat terhubung otomatis ke "${hydratedSettings.spreadsheetTitle}" & memuat ${pulled.items.length} produk serta akun terbaru. Silakan login untuk mulai kasir.`,
             });
           }
           return;
@@ -651,7 +662,7 @@ export default function App() {
         if (options?.isMobileOnboarding && pushed) {
           setLoginConnectionNotice({
             type: 'success',
-            message: `HP terhubung otomatis ke "${info.spreadsheetTitle}". Silakan login untuk mulai menggunakan aplikasi.`,
+            message: `Perangkat terhubung otomatis ke "${info.spreadsheetTitle}". Silakan login untuk mulai menggunakan aplikasi.`,
           });
         }
       } catch (err: any) {
@@ -665,7 +676,7 @@ export default function App() {
         if (options?.isMobileOnboarding) {
           setLoginConnectionNotice({
             type: 'error',
-            message: `Gagal koneksi otomatis di HP: ${errMessage}`,
+            message: `Gagal koneksi otomatis perangkat: ${errMessage}`,
           });
         }
       } finally {
@@ -675,23 +686,139 @@ export default function App() {
     [runSyncToSheets]
   );
 
-  // Auto-connect HP mobile when opened via 1-click setup link (?gas=...&folder=...)
-  useEffect(() => {
-    if (!initialMobileSetup || mobileSetupHandledRef.current) return;
-    mobileSetupHandledRef.current = true;
-
-    try {
-      window.history.replaceState({}, '', window.location.pathname);
-    } catch {
-      // Ignore history API failures
+  // Silent 2-way background pull so PC, tablet, & HP always receive latest Sheet updates
+  const pullFromSheetsSilent = useCallback(async () => {
+    const snap = latestSyncSnapshotRef.current;
+    if (
+      !isValidAppsScriptUrl(snap.settings.appsScriptUrl) ||
+      !snap.settings.spreadsheetId ||
+      snap.settings.autoSyncEnabled === false
+    ) {
+      return;
+    }
+    if (
+      syncInFlightRef.current ||
+      syncTimerRef.current !== null ||
+      pullInFlightRef.current
+    ) {
+      return;
+    }
+    const now = Date.now();
+    if (now - lastPulledAtRef.current < 15000) {
+      return;
     }
 
-    void handleConnectAppsScript(
-      initialMobileSetup.appsScriptUrl,
-      initialMobileSetup.driveFolderName,
-      { isMobileOnboarding: true }
-    );
-  }, [initialMobileSetup, handleConnectAppsScript]);
+    pullInFlightRef.current = true;
+    lastPulledAtRef.current = now;
+    try {
+      const pulled = await pullAllViaAppsScript(snap.settings.appsScriptUrl);
+      if (syncInFlightRef.current || syncTimerRef.current !== null) {
+        return;
+      }
+      const hasRemoteData =
+        pulled.items.length > 0 ||
+        pulled.transactions.length > 0 ||
+        pulled.reports.length > 0;
+      if (!hasRemoteData) {
+        return;
+      }
+
+      const current = latestSyncSnapshotRef.current;
+      const nextItems = pulled.items.length > 0 ? pulled.items : current.items;
+      const nextTransactions =
+        pulled.transactions.length > 0
+          ? pulled.transactions
+          : current.transactions;
+      const nextReports =
+        pulled.reports.length > 0 ? pulled.reports : current.reports;
+      const nextSettings: StoreSettings = {
+        ...current.settings,
+        ...pulled.settingsPatch,
+        appsScriptUrl: current.settings.appsScriptUrl,
+        driveFolderName:
+          pulled.settingsPatch.driveFolderName ||
+          current.settings.driveFolderName,
+        spreadsheetId: pulled.spreadsheetId || current.settings.spreadsheetId,
+        spreadsheetTitle:
+          pulled.spreadsheetTitle || current.settings.spreadsheetTitle,
+      };
+
+      const nextSig = computeSyncSignature(
+        nextItems,
+        nextTransactions,
+        nextReports,
+        nextSettings
+      );
+      if (nextSig !== lastSyncedSigRef.current) {
+        lastSyncedSigRef.current = nextSig;
+        latestSyncSnapshotRef.current = {
+          items: nextItems,
+          transactions: nextTransactions,
+          reports: nextReports,
+          settings: nextSettings,
+        };
+        if (pulled.items.length > 0) setItems(nextItems);
+        if (pulled.transactions.length > 0) setTransactions(nextTransactions);
+        if (pulled.reports.length > 0) setReports(nextReports);
+        setSettings(nextSettings);
+      }
+      setAutoSyncStatus('synced');
+    } catch {
+      // Silent background pull ignores transient network failures
+    } finally {
+      pullInFlightRef.current = false;
+    }
+  }, []);
+
+  // Auto-connect via 1-click setup link (?gas=...) OR global env var (VITE_APPS_SCRIPT_URL), and auto-pull on reload
+  useEffect(() => {
+    if (initialMobileSetup) {
+      if (mobileSetupHandledRef.current) return;
+      mobileSetupHandledRef.current = true;
+      startupSyncHandledRef.current = true;
+
+      try {
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch {
+        // Ignore history API failures
+      }
+
+      void handleConnectAppsScript(
+        initialMobileSetup.appsScriptUrl,
+        initialMobileSetup.driveFolderName,
+        { isMobileOnboarding: true }
+      );
+      return;
+    }
+
+    if (startupSyncHandledRef.current) return;
+    startupSyncHandledRef.current = true;
+
+    const currentSettings = latestSyncSnapshotRef.current.settings;
+    if (!isValidAppsScriptUrl(currentSettings.appsScriptUrl)) return;
+
+    if (!currentSettings.spreadsheetId) {
+      void handleConnectAppsScript(
+        currentSettings.appsScriptUrl,
+        currentSettings.driveFolderName,
+        { isMobileOnboarding: true }
+      );
+    } else if (currentSettings.autoSyncEnabled !== false) {
+      void pullFromSheetsSilent();
+    }
+  }, [initialMobileSetup, handleConnectAppsScript, pullFromSheetsSilent]);
+
+  // Pull latest Sheet data automatically when returning to the browser tab on HP/Tablet/PC
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void pullFromSheetsSilent();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [pullFromSheetsSilent]);
 
   if (!resolvedUser) {
     return (

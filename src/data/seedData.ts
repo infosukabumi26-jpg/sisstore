@@ -5,9 +5,9 @@ import type {
   StoreUser,
   TShirtItem,
 } from '../types/sistor';
-import { getDefaultEnvGasConfig } from '../services/googleSheets';
+import { getPermanentDatabaseConfig } from '../config/databaseConfig';
 
-const DEFAULT_ENV_GAS = getDefaultEnvGasConfig();
+const DEFAULT_ENV_GAS = getPermanentDatabaseConfig();
 
 export const INITIAL_USERS: StoreUser[] = [
   {

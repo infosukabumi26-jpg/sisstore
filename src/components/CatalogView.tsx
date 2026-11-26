@@ -608,7 +608,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                     <p className="text-[11px] text-[#6B6B65]">
                       {isDriveConnected
                         ? 'Google Drive aktif: foto otomatis disimpan ke folder Drive toko dan tautannya masuk ke Spreadsheet.'
-                        : 'Mendukung JPG, PNG, WEBP. Tersimpan lokal, dan otomatis masuk Google Drive saat Apps Script dihubungkan.'}
+                        : 'Mendukung JPG, PNG, WEBP. Foto otomatis diunggah ke Google Drive saat sinkronisasi cloud aktif.'}
                     </p>
                   </div>
                 </div>

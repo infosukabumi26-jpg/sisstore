@@ -348,14 +348,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                   <Database className="h-3.5 w-3.5" aria-hidden="true" />
                   {isAppsScriptConnected
                     ? `Sheets aktif (${settings.spreadsheetTitle || 'Terhubung'})`
-                    : 'Mode penyimpanan lokal'}
+                    : 'Database cloud belum dikonfigurasi'}
                 </span>
                 <button
                   type="button"
                   onClick={() => onNavigateTab('pengaturan')}
                   className="font-semibold text-[#1E3A8A] hover:underline"
                 >
-                  Kelola Akun &amp; Sheets
+                  Pengaturan Toko &amp; Akun
                 </button>
               </div>
             </div>

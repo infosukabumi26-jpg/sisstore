@@ -79,7 +79,7 @@ const ALL_NAV_ITEMS: NavItemConfig[] = [
   },
   {
     id: 'pengaturan',
-    label: 'Sheets, Drive & Akun',
+    label: 'Pengaturan Toko & Akun',
     icon: Database,
     roles: ['ADMIN'],
   },
@@ -189,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="rounded-lg border border-[#E5E5E0] bg-[#F7F7F5] px-3 py-2.5">
           <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-[#3F3F3B]">
-            <span>Database Sheets &amp; Drive</span>
+            <span>Database Google Sheets</span>
             {isAppsScriptConnected && (
               <span
                 className={`font-mono text-[10px] ${
@@ -217,16 +217,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ? autoSyncStatus === 'syncing'
                 ? 'Menyinkronkan ke Sheets...'
                 : !autoSyncEnabled
-                ? 'Auto-Sync dijeda sementara'
+                ? 'Sinkronisasi otomatis dijeda'
                 : lastSyncedAt
-                ? `Auto-Sync Aktif · ${new Date(lastSyncedAt).toLocaleTimeString('id-ID', {
+                ? `Tersimpan otomatis · ${new Date(lastSyncedAt).toLocaleTimeString('id-ID', {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}`
                 : spreadsheetLinked
-                ? 'Auto-Sync Real-Time Aktif'
-                : 'Apps Script siap sinkron'
-              : 'Belum terhubung ke Sheets'}
+                ? 'Penyimpanan Cloud Real-Time Aktif'
+                : 'Menghubungkan ke Google Sheets...'
+              : 'Menunggu konfigurasi Cloud'}
           </div>
           {isAdmin && (
             <button
@@ -237,7 +237,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               className="mt-1.5 text-[11px] font-semibold text-[#1E3A8A] hover:underline whitespace-nowrap"
             >
-              Kelola Koneksi Sheets →
+              Pengaturan Toko &amp; Akun →
             </button>
           )}
         </div>

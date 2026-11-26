@@ -1,11 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   BookOpen,
-  Check,
   CheckCircle2,
   CloudUpload,
-  Code2,
-  Copy,
   Download,
   ExternalLink,
   Eye,
@@ -13,33 +10,24 @@ import {
   FolderOpen,
   ImagePlus,
   KeyRound,
-  Link2,
   Lock,
   Pencil,
   Plus,
   QrCode,
   RefreshCw,
   ShieldCheck,
-  Smartphone,
   Trash2,
   UserCheck,
   UserPlus,
   X,
 } from 'lucide-react';
-import { SISTOR_APPS_SCRIPT_CODE } from '../data/appsScriptTemplate';
-import {
-  buildMobileSetupLink,
-  type DriveMediaCategory,
-  getDefaultEnvGasConfig,
-  isGasConfigReady,
-} from '../services/googleSheets';
+import type { DriveMediaCategory } from '../services/googleSheets';
 import type {
   BankAccount,
   OpnameReport,
   SaleTransaction,
   StoreSettings,
   StoreUser,
-  TShirtItem,
   UserRole,
 } from '../types/sistor';
 import { processImageUpload } from '../utils/imageUpload';
@@ -49,9 +37,6 @@ interface SheetsAndSettingsViewProps {
   settings: StoreSettings;
   currentUserId?: string;
   onUpdateSettings: (patch: Partial<StoreSettings>) => void;
-  items: TShirtItem[];
-  transactions: SaleTransaction[];
-  reports: OpnameReport[];
   isAppsScriptConnected: boolean;
   isSyncing: boolean;
   autoSyncStatus?: 'idle' | 'syncing' | 'synced' | 'error';
@@ -59,11 +44,7 @@ interface SheetsAndSettingsViewProps {
     type: 'success' | 'error';
     message: string;
   } | null;
-  onConnectAppsScript: (url: string, driveFolderName: string) => Promise<void>;
-  onInstantAutoSync: (draftUrl?: string, draftFolderName?: string) => Promise<void>;
-  onToggleAutoSync: () => void;
-  onDisconnectAppsScript: () => void;
-  onPushToSheets: () => Promise<void>;
+  onInstantAutoSync: () => Promise<void>;
   onPullFromSheets: () => Promise<void>;
   onUploadMediaToDrive: (
     category: DriveMediaCategory,
@@ -76,48 +57,15 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
   settings,
   currentUserId,
   onUpdateSettings,
-  items,
-  transactions,
-  reports,
   isAppsScriptConnected,
   isSyncing,
   autoSyncStatus = 'idle',
   syncFeedback,
-  onConnectAppsScript,
   onInstantAutoSync,
-  onToggleAutoSync,
-  onDisconnectAppsScript,
-  onPushToSheets,
   onPullFromSheets,
   onUploadMediaToDrive,
 }) => {
-  const [scriptUrlInput, setScriptUrlInput] = useState(settings.appsScriptUrl);
-  const [folderNameInput, setFolderNameInput] = useState(
-    settings.driveFolderName || 'Sisstore_Media_Drive'
-  );
-
-  useEffect(() => {
-    setScriptUrlInput(settings.appsScriptUrl);
-  }, [settings.appsScriptUrl]);
-
-  useEffect(() => {
-    if (settings.driveFolderName) {
-      setFolderNameInput(settings.driveFolderName);
-    }
-  }, [settings.driveFolderName]);
-
-  const isDraftGasReady = isGasConfigReady(scriptUrlInput, folderNameInput);
-  const canInstantAutoSync = isDraftGasReady || isAppsScriptConnected;
-  const isAutoSyncActive =
-    isAppsScriptConnected && settings.autoSyncEnabled !== false;
-  const [showScriptCode, setShowScriptCode] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [copiedMobileLink, setCopiedMobileLink] = useState(false);
-  const [copiedEnvVars, setCopiedEnvVars] = useState(false);
-  const [showGlobalEnvBox, setShowGlobalEnvBox] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<null | 'push' | 'pull'>(
-    null
-  );
+  const [confirmPullOpen, setConfirmPullOpen] = useState(false);
 
   const [newBankName, setNewBankName] = useState('');
   const [newAccNumber, setNewAccNumber] = useState('');
@@ -160,61 +108,6 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
   });
   const [passwordFormError, setPasswordFormError] = useState('');
   const [showPasswordModalPass, setShowPasswordModalPass] = useState(false);
-
-  const handleCopyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(SISTOR_APPS_SCRIPT_CODE);
-      setCopiedCode(true);
-      window.setTimeout(() => setCopiedCode(false), 2500);
-    } catch {
-      setShowScriptCode(true);
-    }
-  };
-
-  const defaultEnvGas = getDefaultEnvGasConfig();
-  const isGlobalEnvMatch =
-    Boolean(defaultEnvGas.appsScriptUrl) &&
-    defaultEnvGas.appsScriptUrl === settings.appsScriptUrl.trim();
-
-  const vercelEnvSnippet = settings.appsScriptUrl.trim()
-    ? `VITE_APPS_SCRIPT_URL=${settings.appsScriptUrl.trim()}\nVITE_DRIVE_FOLDER_NAME=${settings.driveFolderName || 'Sisstore_Media_Drive'}`
-    : '';
-
-  const mobileSetupLink =
-    typeof window !== 'undefined'
-      ? buildMobileSetupLink(
-          window.location.origin,
-          settings.appsScriptUrl,
-          settings.driveFolderName
-        )
-      : '';
-
-  const handleCopyMobileSetupLink = async () => {
-    if (!mobileSetupLink) return;
-    try {
-      await navigator.clipboard.writeText(mobileSetupLink);
-      setCopiedMobileLink(true);
-      window.setTimeout(() => setCopiedMobileLink(false), 2800);
-    } catch {
-      // Fallback: ignore if clipboard unavailable
-    }
-  };
-
-  const handleCopyEnvSnippet = async () => {
-    if (!vercelEnvSnippet) return;
-    try {
-      await navigator.clipboard.writeText(vercelEnvSnippet);
-      setCopiedEnvVars(true);
-      window.setTimeout(() => setCopiedEnvVars(false), 2800);
-    } catch {
-      setShowGlobalEnvBox(true);
-    }
-  };
-
-  const handleConnectSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await onConnectAppsScript(scriptUrlInput, folderNameInput);
-  };
 
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -461,390 +354,102 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-[#141413]">
-          Database Google Sheets, Google Drive &amp; Pengaturan Toko
-        </h1>
-        <p className="mt-1 text-sm text-[#52524E]">
-          Terhubung langsung ke Google Spreadsheet (database) dan Google Drive (penyimpanan foto kaos, logo, &amp; QRIS) tanpa Firebase dan tanpa popup login.
-        </p>
-      </div>
-
-      {/* Google Apps Script (Sheets + Drive) Integration Card */}
-      <section className="rounded-xl border border-[#E5E5E0] bg-white p-6">
-        <div className="flex flex-col gap-4 border-b border-[#E5E5E0] pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-display text-lg font-bold text-[#141413]">
-              Koneksi Google Spreadsheet &amp; Google Drive (Apps Script)
-            </h2>
-            <p className="mt-1 text-sm text-[#52524E]">
-              Cukup pasang skrip Google Apps Script di Spreadsheet Anda sekali saja — data langsung tersimpan ke Sheets dan gambar masuk otomatis ke Google Drive.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <a
-              href="/Panduan-Lengkap-Sisstore.pdf"
-              download="Panduan-Lengkap-Sisstore.pdf"
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3.5 py-2 text-xs font-semibold text-[#1E3A8A] hover:bg-[#DBEAFE]"
-            >
-              <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-              Unduh Tutorial PDF
-            </a>
-            <button
-              type="button"
-              onClick={handleCopyCode}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E5E5E0] bg-white px-3.5 py-2 text-xs font-semibold text-[#141413] hover:bg-[#F3F3F0]"
-            >
-              {copiedCode ? (
-                <Check className="h-3.5 w-3.5 text-[#15803D]" aria-hidden="true" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
-              {copiedCode ? 'Kode Apps Script Disalin' : 'Salin Kode Code.gs'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowScriptCode((v) => !v)}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E5E5E0] bg-[#F7F7F5] px-3.5 py-2 text-xs font-semibold text-[#3F3F3B] hover:bg-[#EBEBE6]"
-            >
-              <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
-              {showScriptCode ? 'Tutup Panduan' : 'Lihat Panduan & Kode'}
-            </button>
-          </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-[#141413]">
+            Pengaturan Toko, Pembayaran &amp; Akun
+          </h1>
+          <p className="mt-1 text-sm text-[#52524E]">
+            Kelola identitas toko, QRIS, rekening bank, dan akun kasir. Seluruh perubahan disimpan otomatis ke Google Sheets &amp; Google Drive secara terpusat.
+          </p>
         </div>
 
-        {syncFeedback && (
-          <div
-            role="status"
-            className={`mt-4 rounded-lg border px-4 py-3 text-xs font-medium ${
-              syncFeedback.type === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-[#15803D]'
-                : 'border-red-200 bg-red-50 text-[#B91C1C]'
-            }`}
-          >
-            {syncFeedback.message}
-          </div>
-        )}
+        <a
+          href="/Panduan-Lengkap-Sisstore.pdf"
+          download="Panduan-Lengkap-Sisstore.pdf"
+          className="inline-flex items-center gap-1.5 self-start whitespace-nowrap rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3.5 py-2 text-xs font-semibold text-[#1E3A8A] hover:bg-[#DBEAFE] sm:self-auto"
+        >
+          <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+          Unduh Tutorial PDF
+        </a>
+      </div>
 
-        {showScriptCode && (
-          <div className="mt-4 rounded-xl border border-[#E5E5E0] bg-[#F7F7F5] p-4 space-y-3">
-            <div className="grid grid-cols-1 gap-3 text-xs text-[#3F3F3B] md:grid-cols-4">
-              <div className="rounded-lg bg-white p-3 border border-[#E5E5E0]">
-                <div className="font-semibold text-[#141413]">
-                  1. Buka Spreadsheet
-                </div>
-                <p className="mt-1">
-                  Buka Google Sheets Anda lalu klik{' '}
-                  <strong>Extensions → Apps Script</strong>.
-                </p>
-              </div>
-              <div className="rounded-lg bg-white p-3 border border-[#E5E5E0]">
-                <div className="font-semibold text-[#141413]">
-                  2. Tempel Kode
-                </div>
-                <p className="mt-1">
-                  Hapus isi editor, klik <strong>Salin Kode Code.gs</strong> lalu tempel dan tekan <strong>Ctrl+S</strong>.
-                </p>
-              </div>
-              <div className="rounded-lg bg-white p-3 border border-[#E5E5E0]">
-                <div className="font-semibold text-[#141413]">
-                  3. Deploy Web App
-                </div>
-                <p className="mt-1">
-                  Klik <strong>Deploy → New deployment → Web app</strong>. Pilih <em>Execute as: Me</em> &amp; <em>Who has access: Anyone</em>.
-                </p>
-              </div>
-              <div className="rounded-lg bg-white p-3 border border-[#E5E5E0]">
-                <div className="font-semibold text-[#141413]">
-                  4. Tempel URL /exec
-                </div>
-                <p className="mt-1">
-                  Salin URL Web App berakhiran <code className="font-mono">/exec</code> ke kolom di bawah lalu klik <strong>Simpan &amp; Uji Koneksi</strong>.
-                </p>
-              </div>
-            </div>
-
-            <pre className="max-h-60 overflow-auto rounded-lg border border-[#E5E5E0] bg-[#141413] p-3 font-mono text-[11px] leading-relaxed text-[#F7F7F5]">
-              {SISTOR_APPS_SCRIPT_CODE}
-            </pre>
-          </div>
-        )}
-
-        <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <form onSubmit={handleConnectSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="apps-script-url"
-                className="block text-xs font-semibold text-[#3F3F3B]"
-              >
-                URL Web App Google Apps Script
-              </label>
-              <input
-                id="apps-script-url"
-                type="url"
-                placeholder="https://script.google.com/macros/s/.../exec"
-                value={scriptUrlInput}
-                onChange={(e) => setScriptUrlInput(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-[#E5E5E0] px-3 py-2 font-mono text-xs focus:border-[#1E3A8A] focus:outline-none"
-              />
-              {/\/dev(\?.*)?$/i.test(scriptUrlInput.trim()) && (
-                <p className="mt-1 text-[11px] font-medium text-[#B91C1C]">
-                  URL masih berakhiran <code className="font-mono">/dev</code>. Gunakan URL Web App berakhiran <code className="font-mono">/exec</code> agar sinkronisasi lancar.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="drive-folder-name"
-                className="block text-xs font-semibold text-[#3F3F3B]"
-              >
-                Nama Folder Penyimpanan Gambar di Google Drive
-              </label>
-              <input
-                id="drive-folder-name"
-                type="text"
-                placeholder="Sisstore_Media_Drive"
-                value={folderNameInput}
-                onChange={(e) => setFolderNameInput(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-[#E5E5E0] px-3 py-2 font-mono text-xs focus:border-[#1E3A8A] focus:outline-none"
-              />
-              <p className="mt-1 text-[11px] text-[#6B6B65]">
-                Otomatis dibuatkan subfolder <code className="font-mono">Produk_Kaos</code>, <code className="font-mono">Logo_Toko</code>, dan <code className="font-mono">QRIS_Toko</code> di Google Drive Anda.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                type="submit"
-                disabled={isSyncing}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1E3A8A] px-4 py-2 text-xs font-semibold text-white hover:bg-[#172554] disabled:opacity-60"
-              >
-                <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-                {isSyncing
-                  ? 'Menghubungkan & Menyinkronkan...'
-                  : 'Simpan & Uji Koneksi'}
-              </button>
-              {isAppsScriptConnected && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setScriptUrlInput('');
-                    onDisconnectAppsScript();
-                  }}
-                  className="rounded-lg border border-[#E5E5E0] bg-white px-3.5 py-2 text-xs font-semibold text-[#B91C1C] hover:bg-red-50"
-                >
-                  Putuskan Koneksi
-                </button>
-              )}
-            </div>
-            <p className="text-[11px] text-[#6B6B65]">
-              Saat klik <strong>Simpan &amp; Uji Koneksi</strong>, aplikasi otomatis memverifikasi Web App GAS, menautkan folder Drive, langsung mengisi 7 tab Spreadsheet, dan mengaktifkan <strong>Sinkronisasi Real-Time</strong>.
-            </p>
-          </form>
-
-          <div className="rounded-lg border border-[#E5E5E0] bg-[#F7F7F5] p-4 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-[#3F3F3B]">
-                  Status Spreadsheet &amp; Google Drive
-                </span>
-                {isAppsScriptConnected ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#15803D]">
-                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    Terhubung Real-Time
-                  </span>
-                ) : isDraftGasReady ? (
-                  <span className="text-xs font-semibold text-[#1E3A8A]">
-                    URL &amp; Folder Siap Dihubungkan
-                  </span>
-                ) : null}
-              </div>
-
+      {/* Read-Only Cloud Database Status Strip (Behind-the-scenes Apps Script & Drive) */}
+      <section className="rounded-xl border border-[#E5E5E0] bg-white p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-display text-base font-bold text-[#141413]">
+                Penyimpanan Cloud Google Sheets &amp; Google Drive
+              </h2>
               {isAppsScriptConnected ? (
-                <div className="mt-2.5 space-y-1.5 text-xs">
-                  <div className="font-semibold text-[#141413]">
-                    {settings.spreadsheetTitle || 'Spreadsheet Sisstore Aktif'}
-                  </div>
-                  {settings.spreadsheetId && (
-                    <div className="font-mono text-[11px] text-[#52524E] break-all">
-                      ID: {settings.spreadsheetId}
-                    </div>
-                  )}
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[#E5E5E0] bg-white px-3 py-2">
-                    <div className="text-[11px]">
-                      <span className="font-semibold text-[#141413]">
-                        Auto-Sync Real-Time:{' '}
-                      </span>
-                      <span
-                        className={
-                          autoSyncStatus === 'error'
-                            ? 'font-semibold text-[#B91C1C]'
-                            : isAutoSyncActive
-                            ? 'font-semibold text-[#15803D]'
-                            : 'font-semibold text-[#B45309]'
-                        }
-                      >
-                        {autoSyncStatus === 'syncing'
-                          ? 'Sedang menyinkronkan...'
-                          : autoSyncStatus === 'error'
-                          ? 'Tertunda (coba sinkron ulang)'
-                          : isAutoSyncActive
-                          ? 'Aktif Otomatis'
-                          : 'Dijeda'}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onToggleAutoSync}
-                      className="text-[11px] font-semibold text-[#1E3A8A] hover:underline"
-                    >
-                      {isAutoSyncActive ? 'Jeda Auto-Sync' : 'Aktifkan Auto-Sync'}
-                    </button>
-                  </div>
-                  <div className="text-[#6B6B65]">
-                    Sinkron terakhir:{' '}
-                    {settings.lastSyncedAt
-                      ? new Date(settings.lastSyncedAt).toLocaleString('id-ID')
-                      : 'Siap sinkron otomatis'}
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap gap-3 pt-1">
-                    {settings.spreadsheetId && (
-                      <a
-                        href={`https://docs.google.com/spreadsheets/d/${settings.spreadsheetId}/edit`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-semibold text-[#1E3A8A] hover:underline"
-                      >
-                        Buka Google Sheets
-                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                      </a>
-                    )}
-                    {settings.driveFolderUrl && (
-                      <a
-                        href={settings.driveFolderUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-semibold text-[#15803D] hover:underline"
-                      >
-                        <FolderOpen className="h-3 w-3" aria-hidden="true" />
-                        Buka Folder Drive ({settings.driveFolderName})
-                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                      </a>
-                    )}
-                  </div>
-
-                  {mobileSetupLink && (
-                    <div className="mt-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3 space-y-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1E3A8A]">
-                          <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
-                          Aktifkan di HP, Tablet &amp; Komputer Lain
-                        </div>
-                        {isGlobalEnvMatch && (
-                          <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-[#15803D]">
-                            Aktif Global (Env Var)
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] leading-relaxed text-[#3F3F3B]">
-                        {isGlobalEnvMatch
-                          ? 'Pengaturan GAS sudah tertanam global di Environment Variable server tanpa localStorage — semua HP, tablet, dan komputer lain yang membuka URL website ini langsung otomatis terhubung.'
-                          : 'Aplikasi tidak menyimpan data di localStorage browser (seluruh data live dari Google Sheets & Drive). Agar HP, tablet, atau komputer lain langsung terhubung otomatis saat dibuka, kirim Link Setup 1-Klik di bawah atau simpan ke Environment Variables Vercel.'}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleCopyMobileSetupLink}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#BFDBFE] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#1E3A8A] hover:bg-[#DBEAFE]"
-                        >
-                          {copiedMobileLink ? (
-                            <Check className="h-3.5 w-3.5 text-[#15803D]" aria-hidden="true" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                          )}
-                          {copiedMobileLink
-                            ? 'Link Setup HP Disalin'
-                            : 'Salin Link Setup HP'}
-                        </button>
-                        <a
-                          href={`https://wa.me/?text=${encodeURIComponent(
-                            `Link Setup Otomatis Kasir ${settings.storeName} (buka di HP/Tablet/PC lain untuk langsung terhubung ke Google Sheets): ${mobileSetupLink}`
-                          )}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#15803D] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#166534]"
-                        >
-                          <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                          Kirim ke WhatsApp HP
-                        </a>
-                        {!isGlobalEnvMatch && vercelEnvSnippet && (
-                          <button
-                            type="button"
-                            onClick={() => setShowGlobalEnvBox((v) => !v)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-[#BFDBFE] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#3F3F3B] hover:bg-[#DBEAFE]"
-                          >
-                            {showGlobalEnvBox
-                              ? 'Tutup Setup Permanen Vercel'
-                              : 'Setting Permanen Semua Perangkat'}
-                          </button>
-                        )}
-                      </div>
-
-                      {!isGlobalEnvMatch && showGlobalEnvBox && vercelEnvSnippet && (
-                        <div className="rounded-lg border border-[#BFDBFE] bg-white p-2.5 space-y-2">
-                          <div className="text-[11px] font-semibold text-[#141413]">
-                            Agar otomatis ter-setting di semua HP, tablet &amp; komputer saat membuka URL website:
-                          </div>
-                          <ol className="list-decimal pl-4 text-[11px] leading-relaxed text-[#52524E] space-y-0.5">
-                            <li>
-                              Buka dashboard <strong>Vercel → Project Settings → Environment Variables</strong>.
-                            </li>
-                            <li>
-                              Tambahkan 2 variabel berikut lalu klik <strong>Redeploy</strong>:
-                            </li>
-                          </ol>
-                          <pre className="overflow-x-auto rounded border border-[#E5E5E0] bg-[#141413] p-2 font-mono text-[10px] text-[#F7F7F5]">
-                            {vercelEnvSnippet}
-                          </pre>
-                          <button
-                            type="button"
-                            onClick={handleCopyEnvSnippet}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-[#E5E5E0] bg-[#F7F7F5] px-2.5 py-1 text-[11px] font-semibold text-[#1E3A8A] hover:bg-[#EBEBE6]"
-                          >
-                            {copiedEnvVars ? (
-                              <Check className="h-3 w-3 text-[#15803D]" aria-hidden="true" />
-                            ) : (
-                              <Copy className="h-3 w-3" aria-hidden="true" />
-                            )}
-                            {copiedEnvVars
-                              ? 'Variabel Vercel Disalin'
-                              : 'Salin 2 Variabel Vercel'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <span className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[#15803D]">
+                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                  {autoSyncStatus === 'syncing'
+                    ? 'Menyinkronkan...'
+                    : autoSyncStatus === 'error'
+                    ? 'Sinkron Tertunda'
+                    : 'Terhubung Permanen · Real-Time'}
+                </span>
               ) : (
-                <p className="mt-2 text-xs text-[#6B6B65]">
-                  {isDraftGasReady
-                    ? 'URL Web App GAS dan Folder Drive sudah terisi. Klik "Simpan & Uji Koneksi" atau langsung tekan 1 tombol "Sinkronisasi Otomatis Sekarang" di bawah untuk menyambungkan dan menyinkronkan seluruh data secara real-time.'
-                    : 'Isi URL Web App Google Apps Script (/exec) dan Nama Folder Drive di sebelah kiri. Setelah terisi, Anda bisa langsung menyambungkan dan menyinkronkan Spreadsheet secara real-time dalam 1 klik.'}
-                </p>
+                <span className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-[#B45309]">
+                  Dikelola di Environment Server
+                </span>
               )}
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-[#E5E5E0] pt-4">
+            {isAppsScriptConnected ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#52524E]">
+                <span>
+                  Database:{' '}
+                  <strong className="text-[#141413]">
+                    {settings.spreadsheetTitle || 'Google Spreadsheet Sisstore'}
+                  </strong>
+                </span>
+                <span>
+                  Sinkron terakhir:{' '}
+                  {settings.lastSyncedAt
+                    ? new Date(settings.lastSyncedAt).toLocaleString('id-ID')
+                    : 'Aktif otomatis'}
+                </span>
+                {settings.spreadsheetId && (
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${settings.spreadsheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold text-[#1E3A8A] hover:underline"
+                  >
+                    Buka Google Sheets
+                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  </a>
+                )}
+                {settings.driveFolderUrl && (
+                  <a
+                    href={settings.driveFolderUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold text-[#15803D] hover:underline"
+                  >
+                    <FolderOpen className="h-3 w-3" aria-hidden="true" />
+                    Buka Folder Drive
+                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  </a>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-[#6B6B65]">
+                Konfigurasi Google Apps Script &amp; Google Drive berjalan di belakang layar melalui Environment Server agar otomatis aktif di semua perangkat dan browser tanpa pengaturan ulang.
+              </p>
+            )}
+          </div>
+
+          {isAppsScriptConnected && (
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 type="button"
-                disabled={!canInstantAutoSync || isSyncing}
-                onClick={() =>
-                  void onInstantAutoSync(scriptUrlInput, folderNameInput)
-                }
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1E3A8A] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#172554] disabled:cursor-not-allowed disabled:bg-[#D6D6D0] disabled:text-[#6B6B65]"
+                disabled={isSyncing}
+                onClick={() => void onInstantAutoSync()}
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1E3A8A] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#172554] disabled:opacity-60"
               >
                 {isSyncing || autoSyncStatus === 'syncing' ? (
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -853,20 +458,33 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
                 )}
                 {isSyncing || autoSyncStatus === 'syncing'
                   ? 'Menyinkronkan...'
-                  : 'Sinkronisasi Otomatis Sekarang'}
+                  : 'Sinkronkan Sekarang'}
               </button>
               <button
                 type="button"
-                disabled={!isAppsScriptConnected || isSyncing}
-                onClick={() => setConfirmAction('pull')}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E5E5E0] bg-white px-3.5 py-2 text-xs font-semibold text-[#141413] hover:bg-[#EBEBE6] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isSyncing}
+                onClick={() => setConfirmPullOpen(true)}
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E5E5E0] bg-white px-3.5 py-2 text-xs font-semibold text-[#141413] hover:bg-[#EBEBE6] disabled:opacity-50"
               >
                 <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                Muat Data dari Sheets
+                Muat Ulang Data
               </button>
             </div>
-          </div>
+          )}
         </div>
+
+        {syncFeedback && (
+          <div
+            role="status"
+            className={`mt-4 rounded-lg border px-4 py-2.5 text-xs font-medium ${
+              syncFeedback.type === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-[#15803D]'
+                : 'border-red-200 bg-red-50 text-[#B91C1C]'
+            }`}
+          >
+            {syncFeedback.message}
+          </div>
+        )}
       </section>
 
       {/* Store Identity, Logo, QRIS & Bank Transfer Settings */}
@@ -1397,40 +1015,18 @@ export const SheetsAndSettingsView: React.FC<SheetsAndSettingsViewProps> = ({
         </div>
       </section>
 
-      {/* Confirmation Dialogs before Mutating Sheets / Local State */}
+      {/* Confirmation Dialog before Reloading Data from Sheets */}
       <ConfirmDialog
-        open={confirmAction === 'push'}
-        title="Sinkronkan Data & Gambar ke Spreadsheet + Drive?"
-        description={`Aplikasi akan mengunggah gambar lokal yang belum tersimpan di Drive (jika ada) lalu memformat 7 tab profesional di spreadsheet "${settings.spreadsheetTitle || 'Google Sheets Sisstore'}".`}
-        details={[
-          `Tab Ringkasan_Eksekutif: KPI omzet, HPP, laba bersih, arus kas & valuasi aset`,
-          `Tab Katalog_Kaos: ${items.length} SKU + link foto Google Drive`,
-          `Tab Stock_Opname: HPP, Nilai Penjualan, Laba Kotor, Kerugian Selisih & Keterangan`,
-          `Tab Transaksi_Penjualan: ${transactions.length} transaksi (Cash, QRIS, Transfer & Kasir)`,
-          `Tab Laporan_Penjualan_Produk: Peringkat omzet & laba kotor per varian kaos`,
-          `Tab Laporan_Opname: ${reports.length} arsip berita acara opname`,
-          `Tab Pengaturan_Toko: identitas, logo Drive, QRIS Drive, rekening & akun login`,
-        ]}
-        confirmLabel="Ya, Sinkronkan Sekarang"
+        open={confirmPullOpen}
+        title="Muat Ulang Data dari Google Sheets?"
+        description={`Data katalog produk, transaksi, laporan, dan pengaturan toko akan dimuat ulang dari "${settings.spreadsheetTitle || 'Google Sheets'}".`}
+        confirmLabel="Ya, Muat Ulang"
         loading={isSyncing}
         onConfirm={async () => {
-          setConfirmAction(null);
-          await onPushToSheets();
-        }}
-        onCancel={() => setConfirmAction(null)}
-      />
-
-      <ConfirmDialog
-        open={confirmAction === 'pull'}
-        title="Muat Data dari Google Sheets?"
-        description={`Data katalog kaos dan pengaturan toko di aplikasi saat ini akan diperbarui dari spreadsheet "${settings.spreadsheetTitle || 'Google Sheets'}".`}
-        confirmLabel="Ya, Muat dari Sheets"
-        loading={isSyncing}
-        onConfirm={async () => {
-          setConfirmAction(null);
+          setConfirmPullOpen(false);
           await onPullFromSheets();
         }}
-        onCancel={() => setConfirmAction(null)}
+        onCancel={() => setConfirmPullOpen(false)}
       />
 
       {/* Add / Edit User Modal */}

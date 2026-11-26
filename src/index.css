@@ -322,7 +322,20 @@ html.dark body {
 
 .dark .qris-paper {
   background-color: #ffffff !important;
+  color: #141413 !important;
   border-color: #e5e5e0 !important;
+}
+
+.dark .qris-paper .text-\[\#141413\] {
+  color: #141413 !important;
+}
+
+.dark .qris-paper .text-\[\#52524E\] {
+  color: #52524e !important;
+}
+
+.dark .qris-paper .text-\[\#6B6B65\] {
+  color: #6b6b65 !important;
 }
 
 /* Thermal Receipt always renders as clean black-on-white paper */

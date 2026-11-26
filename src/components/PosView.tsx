@@ -3,7 +3,10 @@ import {
   ArrowRight,
   Banknote,
   Building2,
+  Check,
   CheckCircle2,
+  Clock,
+  Copy,
   History,
   Minus,
   Plus,
@@ -18,6 +21,7 @@ import {
 } from 'lucide-react';
 import type {
   PaymentMethod,
+  PendingQrisOrder,
   SaleTransaction,
   StoreSettings,
   StoreUser,
@@ -36,6 +40,9 @@ interface PosViewProps {
   transactions: SaleTransaction[];
   settings: StoreSettings;
   currentUser: StoreUser;
+  pendingQrisOrders?: PendingQrisOrder[];
+  onHoldPendingQris?: (order: PendingQrisOrder) => void;
+  onRemovePendingQris?: (orderId: string) => void;
   onCompleteSale: (tx: Omit<SaleTransaction, 'id' | 'invoiceNo'>) => SaleTransaction;
 }
 
@@ -50,6 +57,9 @@ export const PosView: React.FC<PosViewProps> = ({
   transactions,
   settings,
   currentUser,
+  pendingQrisOrders = [],
+  onHoldPendingQris,
+  onRemovePendingQris,
   onCompleteSale,
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
@@ -60,6 +70,7 @@ export const PosView: React.FC<PosViewProps> = ({
   const [diskonInput, setDiskonInput] = useState('0');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [cashReceivedInput, setCashReceivedInput] = useState('');
+  const [qrisPaidInput, setQrisPaidInput] = useState('');
   const [selectedBankId, setSelectedBankId] = useState(
     settings.bankAccounts[0]?.id || ''
   );
@@ -75,6 +86,15 @@ export const PosView: React.FC<PosViewProps> = ({
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [cartToast, setCartToast] = useState<string | null>(null);
+  const [qrisModalState, setQrisModalState] = useState<
+    | null
+    | { mode: 'cart' }
+    | { mode: 'pending'; order: PendingQrisOrder }
+  >(null);
+  const [qrisModalAmountInput, setQrisModalAmountInput] = useState('');
+  const [qrisModalRefInput, setQrisModalRefInput] = useState('');
+  const [qrisModalError, setQrisModalError] = useState('');
+  const [copiedNominal, setCopiedNominal] = useState(false);
   const toastTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -157,6 +177,9 @@ export const PosView: React.FC<PosViewProps> = ({
   const cashReceivedNum = Number(cashReceivedInput) || 0;
   const cashCalc = calculateCashChange(totalPenjualan, cashReceivedNum);
 
+  const qrisPaidNum = Number(qrisPaidInput) || 0;
+  const qrisCalc = calculateCashChange(totalPenjualan, qrisPaidNum);
+
   const selectedBank =
     settings.bankAccounts.find((b) => b.id === selectedBankId) ||
     settings.bankAccounts[0];
@@ -210,22 +233,247 @@ export const PosView: React.FC<PosViewProps> = ({
     );
   };
 
-  const handleCheckout = (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateCartReadyForPayment = (): boolean => {
     setCheckoutError('');
-
     if (cart.length === 0) {
       setCheckoutError('Keranjang masih kosong. Pilih minimal 1 kaos.');
-      return;
+      return false;
     }
-
     const missingPriceRow = cart.find((r) => r.customHargaJual <= 0);
     if (missingPriceRow) {
       setCheckoutError(
-        `Isi Harga Jadi / pcs untuk "${missingPriceRow.item.nama} (${missingPriceRow.item.ukuran})" sebelum menyelesaikan penjualan.`
+        `Isi Harga Jadi / pcs untuk "${missingPriceRow.item.nama} (${missingPriceRow.item.ukuran})" sebelum melanjutkan pembayaran.`
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const resetActiveCartForm = () => {
+    setCart([]);
+    setDiskonInput('0');
+    setCashReceivedInput('');
+    setQrisPaidInput('');
+    setPaymentRef('');
+    setCatatan('');
+    setCheckoutError('');
+    setCartDrawerOpen(false);
+  };
+
+  const openCartQrisModal = () => {
+    if (!validateCartReadyForPayment()) return;
+    setQrisModalAmountInput(
+      qrisPaidInput.trim() !== '' ? qrisPaidInput : String(totalPenjualan)
+    );
+    setQrisModalRefInput(paymentRef);
+    setQrisModalError('');
+    setCopiedNominal(false);
+    setQrisModalState({ mode: 'cart' });
+  };
+
+  const openPendingQrisModal = (order: PendingQrisOrder) => {
+    setQrisModalAmountInput(
+      String(order.customerPaidAmount || order.totalPenjualan)
+    );
+    setQrisModalRefInput(order.referensiPembayaran || '');
+    setQrisModalError('');
+    setCopiedNominal(false);
+    setQrisModalState({ mode: 'pending', order });
+  };
+
+  const handleHoldCartAsPendingQris = () => {
+    if (!validateCartReadyForPayment()) return;
+    const now = new Date();
+    const waktu = now.toTimeString().slice(0, 5);
+    const paidFromModalOrInline =
+      qrisModalState?.mode === 'cart'
+        ? qrisModalAmountInput.trim()
+        : qrisPaidInput.trim();
+    const refFromModalOrInline =
+      qrisModalState?.mode === 'cart' ? qrisModalRefInput : paymentRef;
+    const parsedPaid = Number(paidFromModalOrInline);
+    const queueCode = `QRIS-${String(pendingQrisOrders.length + 1).padStart(2, '0')}`;
+
+    const heldOrder: PendingQrisOrder = {
+      id: `pqris-${now.getTime()}`,
+      queueCode,
+      createdAt: now.toISOString(),
+      waktu,
+      items: cart.map((r) => ({
+        itemId: r.item.id,
+        sku: r.item.sku,
+        nama: r.item.nama,
+        ukuran: r.item.ukuran,
+        warna: r.item.warna,
+        qty: r.qty,
+        hpp: r.item.hpp,
+        hargaKatalog: r.item.hargaJual,
+        hargaJual: r.customHargaJual,
+      })),
+      totalQty,
+      totalHpp,
+      subtotal,
+      diskon,
+      totalPenjualan,
+      customerPaidAmount:
+        Number.isFinite(parsedPaid) && parsedPaid > 0
+          ? parsedPaid
+          : totalPenjualan,
+      referensiPembayaran: refFromModalOrInline.trim(),
+      kasir:
+        kasirName.trim() || currentUser.displayName || settings.defaultCashier,
+      kasirRole: currentUser.role,
+      catatan: catatan.trim(),
+    };
+
+    onHoldPendingQris?.(heldOrder);
+    setQrisModalState(null);
+    resetActiveCartForm();
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    setCartToast(
+      `Tagihan ${queueCode} (${formatRupiah(totalPenjualan)}) disimpan sambil menunggu bukti bayar QRIS customer.`
+    );
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setCartToast(null);
+    }, 5000);
+  };
+
+  const completePendingQrisOrder = (
+    order: PendingQrisOrder,
+    paidAmount: number,
+    refCode: string
+  ) => {
+    const now = new Date();
+    const created = onCompleteSale({
+      tanggal: now.toISOString().slice(0, 10),
+      waktu: now.toTimeString().slice(0, 5),
+      items: order.items,
+      totalQty: order.totalQty,
+      totalHpp: order.totalHpp,
+      subtotal: order.subtotal,
+      diskon: order.diskon,
+      totalPenjualan: order.totalPenjualan,
+      metodePembayaran: 'QRIS',
+      referensiPembayaran:
+        refCode.trim() ||
+        `QRIS-${now.getTime().toString().slice(-5)}`,
+      uangDiterima: paidAmount,
+      kembalian:
+        paidAmount > order.totalPenjualan
+          ? paidAmount - order.totalPenjualan
+          : undefined,
+      kasir: order.kasir,
+      kasirRole: order.kasirRole,
+      catatan: order.catatan,
+    });
+
+    onRemovePendingQris?.(order.id);
+    setCartToast(null);
+    setQrisModalState(null);
+    setReceiptTx(created);
+    if (autoPrint) {
+      window.setTimeout(() => {
+        triggerReceiptPrint();
+      }, 150);
+    }
+  };
+
+  const handleConfirmQrisModalPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!qrisModalState) return;
+    setQrisModalError('');
+
+    const targetTotal =
+      qrisModalState.mode === 'cart'
+        ? totalPenjualan
+        : qrisModalState.order.totalPenjualan;
+
+    const paidNum =
+      qrisModalAmountInput.trim() === ''
+        ? targetTotal
+        : Math.floor(Number(qrisModalAmountInput) || 0);
+
+    const check = calculateCashChange(targetTotal, paidNum);
+    if (!check.valid) {
+      setQrisModalError(
+        `Jumlah pembayaran QRIS kurang ${formatRupiah(check.kurang)} dari total tagihan.`
       );
       return;
     }
+
+    if (qrisModalState.mode === 'pending') {
+      completePendingQrisOrder(
+        qrisModalState.order,
+        paidNum,
+        qrisModalRefInput
+      );
+      return;
+    }
+
+    if (!validateCartReadyForPayment()) return;
+    const now = new Date();
+    const created = onCompleteSale({
+      tanggal: now.toISOString().slice(0, 10),
+      waktu: now.toTimeString().slice(0, 5),
+      items: cart.map((r) => ({
+        itemId: r.item.id,
+        sku: r.item.sku,
+        nama: r.item.nama,
+        ukuran: r.item.ukuran,
+        warna: r.item.warna,
+        qty: r.qty,
+        hpp: r.item.hpp,
+        hargaKatalog: r.item.hargaJual,
+        hargaJual: r.customHargaJual,
+      })),
+      totalQty,
+      totalHpp,
+      subtotal,
+      diskon,
+      totalPenjualan,
+      metodePembayaran: 'QRIS',
+      referensiPembayaran:
+        qrisModalRefInput.trim() ||
+        `QRIS-${now.getTime().toString().slice(-5)}`,
+      uangDiterima: paidNum,
+      kembalian:
+        paidNum > totalPenjualan ? paidNum - totalPenjualan : undefined,
+      kasir:
+        kasirName.trim() || currentUser.displayName || settings.defaultCashier,
+      kasirRole: currentUser.role,
+      catatan: catatan.trim(),
+    });
+
+    setQrisModalState(null);
+    resetActiveCartForm();
+    setCartToast(null);
+    setReceiptTx(created);
+    if (autoPrint) {
+      window.setTimeout(() => {
+        triggerReceiptPrint();
+      }, 150);
+    }
+  };
+
+  const handleCopyNominal = async (amount: number) => {
+    try {
+      await navigator.clipboard.writeText(String(amount));
+      setCopiedNominal(true);
+      window.setTimeout(() => setCopiedNominal(false), 2000);
+    } catch {
+      // Clipboard API unavailable
+    }
+  };
+
+  const handleCheckout = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateCartReadyForPayment()) return;
 
     if (paymentMethod === 'CASH') {
       const received =
@@ -234,6 +482,16 @@ export const PosView: React.FC<PosViewProps> = ({
       if (!check.valid) {
         setCheckoutError(
           `Uang tunai kurang ${formatRupiah(check.kurang)}.`
+        );
+        return;
+      }
+    }
+
+    if (paymentMethod === 'QRIS' && qrisPaidInput.trim() !== '') {
+      const check = calculateCashChange(totalPenjualan, qrisPaidNum);
+      if (!check.valid) {
+        setCheckoutError(
+          `Jumlah pembayaran QRIS customer kurang ${formatRupiah(check.kurang)}.`
         );
         return;
       }
@@ -248,11 +506,19 @@ export const PosView: React.FC<PosViewProps> = ({
         ? cashReceivedInput.trim() === ''
           ? totalPenjualan
           : cashReceivedNum
+        : paymentMethod === 'QRIS'
+        ? qrisPaidInput.trim() === ''
+          ? totalPenjualan
+          : qrisPaidNum
         : undefined;
 
     const kembalian =
-      paymentMethod === 'CASH' && uangDiterima !== undefined
-        ? Math.max(0, uangDiterima - totalPenjualan)
+      uangDiterima !== undefined
+        ? paymentMethod === 'CASH'
+          ? Math.max(0, uangDiterima - totalPenjualan)
+          : uangDiterima > totalPenjualan
+          ? uangDiterima - totalPenjualan
+          : undefined
         : undefined;
 
     const created = onCompleteSale({
@@ -291,12 +557,7 @@ export const PosView: React.FC<PosViewProps> = ({
       catatan: catatan.trim(),
     });
 
-    setCart([]);
-    setDiskonInput('0');
-    setCashReceivedInput('');
-    setPaymentRef('');
-    setCatatan('');
-    setCartDrawerOpen(false);
+    resetActiveCartForm();
     setCartToast(null);
     setReceiptTx(created);
     if (autoPrint) {
@@ -413,6 +674,91 @@ export const PosView: React.FC<PosViewProps> = ({
             <ArrowRight className="h-3 w-3" aria-hidden="true" />
           </button>
         </div>
+      )}
+
+      {pendingQrisOrders.length > 0 && (
+        <section
+          aria-label="Antrean pembayaran QRIS menunggu bukti bayar"
+          className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-4 space-y-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-[#1E3A8A]" aria-hidden="true" />
+              <h2 className="font-display text-sm font-bold text-[#1E3A8A]">
+                Menunggu Bukti Bayar QRIS ({pendingQrisOrders.length})
+              </h2>
+            </div>
+            <span className="text-xs text-[#1E3A8A]/80">
+              Kasir tetap bisa melayani transaksi lain sambil menunggu bukti bayar customer
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+            {pendingQrisOrders.map((order) => (
+              <div
+                key={order.id}
+                className="flex flex-col justify-between gap-3 rounded-lg border border-[#BFDBFE] bg-white p-3.5 sm:flex-row sm:items-center"
+              >
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded bg-[#EFF6FF] px-2 py-0.5 font-mono font-bold text-[#1E3A8A]">
+                      {order.queueCode}
+                    </span>
+                    <span className="text-[#6B6B65]">
+                      {order.waktu} · Kasir {order.kasir}
+                    </span>
+                  </div>
+                  <div className="truncate text-xs font-semibold text-[#141413]">
+                    {order.items
+                      .map((i) => `${i.nama} (${i.ukuran}) x${i.qty}`)
+                      .join(', ')}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-mono text-sm font-bold tabular-nums text-[#1E3A8A]">
+                      {formatRupiah(order.totalPenjualan)}
+                    </span>
+                    <span className="text-[#6B6B65]">
+                      · {settings.qrisMerchantName || settings.storeName}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => openPendingQrisModal(order)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E3A8A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#172554]"
+                  >
+                    <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
+                    QRIS &amp; Konfirmasi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      completePendingQrisOrder(
+                        order,
+                        order.customerPaidAmount || order.totalPenjualan,
+                        order.referensiPembayaran
+                      )
+                    }
+                    className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-[#15803D] hover:bg-emerald-100"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Lunas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemovePendingQris?.(order.id)}
+                    aria-label={`Batalkan antrean ${order.queueCode}`}
+                    className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#B91C1C] hover:bg-red-50"
+                  >
+                    Batalkan
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {!isAdmin && (
@@ -963,27 +1309,87 @@ export const PosView: React.FC<PosViewProps> = ({
                 )}
 
                 {paymentMethod === 'QRIS' && (
-                  <div className="space-y-2.5">
+                  <div className="space-y-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF]/40 p-3">
                     <QrisVisual
                       merchantName={settings.qrisMerchantName}
                       merchantId={settings.qrisMerchantId}
+                      storeName={settings.storeName}
                       amount={totalPenjualan}
                       qrisImageUrl={settings.qrisImageUrl}
+                      onOpenModal={openCartQrisModal}
                     />
+
+                    <button
+                      type="button"
+                      onClick={openCartQrisModal}
+                      disabled={cart.length === 0}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#1E3A8A] bg-white px-3 py-2 text-xs font-semibold text-[#1E3A8A] transition-colors hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <QrCode className="h-4 w-4" aria-hidden="true" />
+                      Tampilkan Barcode QRIS &amp; Nama Merchant ke Customer
+                    </button>
+
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label
+                          htmlFor="qris-paid-amount"
+                          className="text-xs font-semibold text-[#3F3F3B]"
+                        >
+                          Jumlah Pembayaran Customer (Rp)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setQrisPaidInput(String(totalPenjualan))
+                          }
+                          className="text-xs font-semibold text-[#1E3A8A] hover:underline"
+                        >
+                          Sesuai Total
+                        </button>
+                      </div>
+                      <input
+                        id="qris-paid-amount"
+                        type="number"
+                        min={0}
+                        placeholder={String(totalPenjualan)}
+                        value={qrisPaidInput}
+                        onChange={(e) => setQrisPaidInput(e.target.value)}
+                        className="mt-1 w-full rounded-lg border border-[#E5E5E0] bg-white px-3 py-1.5 font-mono text-xs font-semibold focus:border-[#1E3A8A] focus:outline-none"
+                      />
+                      {qrisPaidInput.trim() !== '' && totalPenjualan > 0 && (
+                        <div className="mt-1 flex justify-between text-[11px] font-semibold">
+                          <span className="text-[#52524E]">
+                            {qrisCalc.valid ? 'Status Nominal QRIS' : 'Kurang Bayar'}
+                          </span>
+                          <span
+                            className={`font-mono tabular-nums ${
+                              qrisCalc.valid ? 'text-[#15803D]' : 'text-[#B91C1C]'
+                            }`}
+                          >
+                            {qrisCalc.valid
+                              ? qrisCalc.kembalian > 0
+                                ? `Sesuai (+${formatRupiah(qrisCalc.kembalian)})`
+                                : 'Sesuai Tagihan'
+                              : formatRupiah(qrisCalc.kurang)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <label
                         htmlFor="qris-ref"
                         className="block text-xs font-medium text-[#52524E]"
                       >
-                        Nomor Referensi QRIS (Opsional)
+                        Nomor Referensi / Bukti Bayar QRIS (Opsional)
                       </label>
                       <input
                         id="qris-ref"
                         type="text"
-                        placeholder="Contoh: RRN-981273"
+                        placeholder="Contoh: RRN-981273 / Nama Pengirim"
                         value={paymentRef}
                         onChange={(e) => setPaymentRef(e.target.value)}
-                        className="mt-1 w-full rounded-lg border border-[#E5E5E0] px-3 py-1.5 font-mono text-xs focus:border-[#1E3A8A] focus:outline-none"
+                        className="mt-1 w-full rounded-lg border border-[#E5E5E0] bg-white px-3 py-1.5 font-mono text-xs focus:border-[#1E3A8A] focus:outline-none"
                       />
                     </div>
                   </div>
@@ -1076,13 +1482,26 @@ export const PosView: React.FC<PosViewProps> = ({
                   Langsung buka dialog print struk setelah selesai bayar
                 </label>
 
-                <button
-                  type="submit"
-                  disabled={cart.length === 0}
-                  className="w-full whitespace-nowrap rounded-lg bg-[#1E3A8A] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#172554] disabled:cursor-not-allowed disabled:bg-[#D6D6D0] disabled:text-[#6B6B65]"
-                >
-                  Selesaikan Penjualan · {formatRupiah(totalPenjualan)}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="submit"
+                    disabled={cart.length === 0}
+                    className="w-full whitespace-nowrap rounded-lg bg-[#1E3A8A] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#172554] disabled:cursor-not-allowed disabled:bg-[#D6D6D0] disabled:text-[#6B6B65]"
+                  >
+                    Selesaikan Penjualan · {formatRupiah(totalPenjualan)}
+                  </button>
+
+                  {paymentMethod === 'QRIS' && cart.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleHoldCartAsPendingQris}
+                      className="flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-2.5 text-xs font-semibold text-[#1E3A8A] transition-colors hover:bg-[#DBEAFE]"
+                    >
+                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                      Lanjut Kasir Sambil Tunggu Bukti Bayar QRIS
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
           )}
@@ -1615,27 +2034,87 @@ export const PosView: React.FC<PosViewProps> = ({
                     )}
 
                     {paymentMethod === 'QRIS' && (
-                      <div className="space-y-2.5">
+                      <div className="space-y-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF]/40 p-3">
                         <QrisVisual
                           merchantName={settings.qrisMerchantName}
                           merchantId={settings.qrisMerchantId}
+                          storeName={settings.storeName}
                           amount={totalPenjualan}
                           qrisImageUrl={settings.qrisImageUrl}
+                          onOpenModal={openCartQrisModal}
                         />
+
+                        <button
+                          type="button"
+                          onClick={openCartQrisModal}
+                          disabled={cart.length === 0}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#1E3A8A] bg-white px-3 py-2 text-xs font-semibold text-[#1E3A8A] transition-colors hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <QrCode className="h-4 w-4" aria-hidden="true" />
+                          Tampilkan Barcode QRIS &amp; Nama Merchant ke Customer
+                        </button>
+
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <label
+                              htmlFor="drawer-qris-paid-amount"
+                              className="text-xs font-semibold text-[#3F3F3B]"
+                            >
+                              Jumlah Pembayaran Customer (Rp)
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setQrisPaidInput(String(totalPenjualan))
+                              }
+                              className="text-xs font-semibold text-[#1E3A8A] hover:underline"
+                            >
+                              Sesuai Total
+                            </button>
+                          </div>
+                          <input
+                            id="drawer-qris-paid-amount"
+                            type="number"
+                            min={0}
+                            placeholder={String(totalPenjualan)}
+                            value={qrisPaidInput}
+                            onChange={(e) => setQrisPaidInput(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-[#E5E5E0] bg-white px-3 py-1.5 font-mono text-xs font-semibold focus:border-[#1E3A8A] focus:outline-none"
+                          />
+                          {qrisPaidInput.trim() !== '' && totalPenjualan > 0 && (
+                            <div className="mt-1 flex justify-between text-[11px] font-semibold">
+                              <span className="text-[#52524E]">
+                                {qrisCalc.valid ? 'Status Nominal QRIS' : 'Kurang Bayar'}
+                              </span>
+                              <span
+                                className={`font-mono tabular-nums ${
+                                  qrisCalc.valid ? 'text-[#15803D]' : 'text-[#B91C1C]'
+                                }`}
+                              >
+                                {qrisCalc.valid
+                                  ? qrisCalc.kembalian > 0
+                                    ? `Sesuai (+${formatRupiah(qrisCalc.kembalian)})`
+                                    : 'Sesuai Tagihan'
+                                  : formatRupiah(qrisCalc.kurang)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
                         <div>
                           <label
                             htmlFor="drawer-qris-ref"
                             className="block text-xs font-medium text-[#52524E]"
                           >
-                            Nomor Referensi QRIS (Opsional)
+                            Nomor Referensi / Bukti Bayar QRIS (Opsional)
                           </label>
                           <input
                             id="drawer-qris-ref"
                             type="text"
-                            placeholder="Contoh: RRN-981273"
+                            placeholder="Contoh: RRN-981273 / Nama Pengirim"
                             value={paymentRef}
                             onChange={(e) => setPaymentRef(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-[#E5E5E0] px-3 py-1.5 font-mono text-xs focus:border-[#1E3A8A] focus:outline-none"
+                            className="mt-1 w-full rounded-lg border border-[#E5E5E0] bg-white px-3 py-1.5 font-mono text-xs focus:border-[#1E3A8A] focus:outline-none"
                           />
                         </div>
                       </div>
@@ -1733,18 +2212,254 @@ export const PosView: React.FC<PosViewProps> = ({
             </div>
 
             {cart.length > 0 && (
-              <div className="border-t border-[#E5E5E0] bg-[#F7F7F5] px-5 py-4">
+              <div className="space-y-2 border-t border-[#E5E5E0] bg-[#F7F7F5] px-5 py-4">
                 <button
                   type="submit"
                   className="w-full whitespace-nowrap rounded-lg bg-[#1E3A8A] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#172554]"
                 >
                   Selesaikan Penjualan · {formatRupiah(totalPenjualan)}
                 </button>
+                {paymentMethod === 'QRIS' && (
+                  <button
+                    type="button"
+                    onClick={handleHoldCartAsPendingQris}
+                    className="flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-2.5 text-xs font-semibold text-[#1E3A8A] transition-colors hover:bg-[#DBEAFE]"
+                  >
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                    Lanjut Kasir Sambil Tunggu Bukti Bayar QRIS
+                  </button>
+                )}
               </div>
             )}
           </form>
         </div>
       )}
+
+      {/* Customer-Facing QRIS Barcode & Payment Confirmation Modal */}
+      {qrisModalState && (() => {
+        const isPendingMode = qrisModalState.mode === 'pending';
+        const modalTargetTotal = isPendingMode
+          ? qrisModalState.order.totalPenjualan
+          : totalPenjualan;
+        const modalItems = isPendingMode
+          ? qrisModalState.order.items
+          : cart.map((r) => ({
+              itemId: r.item.id,
+              sku: r.item.sku,
+              nama: r.item.nama,
+              ukuran: r.item.ukuran,
+              warna: r.item.warna,
+              qty: r.qty,
+              hpp: r.item.hpp,
+              hargaJual: r.customHargaJual,
+            }));
+        const parsedModalPaid =
+          qrisModalAmountInput.trim() === ''
+            ? modalTargetTotal
+            : Math.floor(Number(qrisModalAmountInput) || 0);
+        const modalPayCheck = calculateCashChange(modalTargetTotal, parsedModalPaid);
+
+        return (
+          <div
+            className="no-print hide-when-printing-receipt fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qris-customer-modal-title"
+          >
+            <form
+              onSubmit={handleConfirmQrisModalPayment}
+              className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#E5E5E0] bg-white shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-[#E5E5E0] px-5 py-3.5 shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EFF6FF] text-[#1E3A8A]">
+                    <QrCode className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h2
+                      id="qris-customer-modal-title"
+                      className="font-display text-base font-bold text-[#141413]"
+                    >
+                      {isPendingMode
+                        ? `Scan QRIS & Konfirmasi · ${qrisModalState.order.queueCode}`
+                        : `Pembayaran QRIS · ${settings.qrisMerchantName || settings.storeName}`}
+                    </h2>
+                    <p className="text-xs text-[#6B6B65]">
+                      Tunjukkan layar ini ke customer untuk scan QRIS &amp; input total pembayaran
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQrisModalState(null)}
+                  aria-label="Tutup tampilan barcode QRIS"
+                  className="rounded-lg p-1.5 text-[#6B6B65] hover:bg-[#F3F3F0]"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5">
+                <QrisVisual
+                  size="large"
+                  merchantName={settings.qrisMerchantName}
+                  merchantId={settings.qrisMerchantId}
+                  storeName={settings.storeName}
+                  amount={modalTargetTotal}
+                  qrisImageUrl={settings.qrisImageUrl}
+                />
+
+                {/* Merchandise Summary + Copy Nominal */}
+                <div className="rounded-xl border border-[#E5E5E0] bg-[#F7F7F5] p-3 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[#141413]">
+                      Ringkasan Merchandise ({modalItems.reduce((s, i) => s + i.qty, 0)} pcs)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyNominal(modalTargetTotal)}
+                      className="inline-flex items-center gap-1 rounded-md border border-[#E5E5E0] bg-white px-2 py-1 text-[11px] font-semibold text-[#1E3A8A] hover:bg-[#EFF6FF]"
+                    >
+                      {copiedNominal ? (
+                        <>
+                          <Check className="h-3 w-3 text-[#15803D]" aria-hidden="true" />
+                          Nominal Disalin
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" aria-hidden="true" />
+                          Salin Nominal ({modalTargetTotal})
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <ul className="space-y-1 text-[#52524E] max-h-20 overflow-y-auto">
+                    {modalItems.map((line, idx) => (
+                      <li key={`${line.itemId}-${idx}`} className="flex justify-between gap-2">
+                        <span className="truncate">
+                          {line.nama} ({line.ukuran}) x{line.qty}
+                        </span>
+                        <span className="font-mono font-semibold tabular-nums text-[#141413] shrink-0">
+                          {formatRupiah(line.qty * line.hargaJual)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Customer Payment Input & Reference Verification */}
+                <div className="space-y-2.5 rounded-xl border border-[#E5E5E0] bg-white p-3.5">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label
+                        htmlFor="qris-modal-paid"
+                        className="text-xs font-semibold text-[#141413]"
+                      >
+                        Jumlah Pembayaran Customer (Rp)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setQrisModalAmountInput(String(modalTargetTotal))
+                        }
+                        className="text-xs font-semibold text-[#1E3A8A] hover:underline"
+                      >
+                        Sesuai Tagihan
+                      </button>
+                    </div>
+                    <input
+                      id="qris-modal-paid"
+                      type="number"
+                      min={0}
+                      placeholder={String(modalTargetTotal)}
+                      value={qrisModalAmountInput}
+                      onChange={(e) => {
+                        setQrisModalAmountInput(e.target.value);
+                        setQrisModalError('');
+                      }}
+                      className="mt-1 w-full rounded-lg border border-[#E5E5E0] px-3 py-1.5 font-mono text-sm font-bold text-[#141413] focus:border-[#1E3A8A] focus:outline-none"
+                    />
+                    <div className="mt-1 flex items-center justify-between text-[11px] font-semibold">
+                      <span className="text-[#6B6B65]">
+                        Total Tagihan: {formatRupiah(modalTargetTotal)}
+                      </span>
+                      <span
+                        className={`font-mono tabular-nums ${
+                          modalPayCheck.valid ? 'text-[#15803D]' : 'text-[#B91C1C]'
+                        }`}
+                      >
+                        {modalPayCheck.valid
+                          ? modalPayCheck.kembalian > 0
+                            ? `Nominal Sesuai (+${formatRupiah(modalPayCheck.kembalian)})`
+                            : 'Nominal Sesuai'
+                          : `Kurang ${formatRupiah(modalPayCheck.kurang)}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="qris-modal-ref"
+                      className="block text-xs font-medium text-[#52524E]"
+                    >
+                      Nomor Referensi / Catatan Bukti Bayar (Opsional)
+                    </label>
+                    <input
+                      id="qris-modal-ref"
+                      type="text"
+                      placeholder="Contoh: RRN-981273 / BCA Mobile - Sinta"
+                      value={qrisModalRefInput}
+                      onChange={(e) => setQrisModalRefInput(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[#E5E5E0] px-3 py-1.5 font-mono text-xs focus:border-[#1E3A8A] focus:outline-none"
+                    />
+                  </div>
+
+                  {qrisModalError && (
+                    <div
+                      role="alert"
+                      className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-[#B91C1C]"
+                    >
+                      {qrisModalError}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-[#E5E5E0] bg-[#F7F7F5] px-5 py-3.5 shrink-0">
+                <button
+                  type="submit"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#1E3A8A] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#172554]"
+                >
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                  Konfirmasi Bayar &amp; Cetak Struk
+                </button>
+
+                {!isPendingMode ? (
+                  <button
+                    type="button"
+                    onClick={handleHoldCartAsPendingQris}
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#BFDBFE] bg-white px-4 py-2 text-xs font-semibold text-[#1E3A8A] transition-colors hover:bg-[#EFF6FF]"
+                  >
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                    Tunggu Bukti Bayar &amp; Lanjut Layani Kasir
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRemovePendingQris?.(qrisModalState.order.id);
+                      setQrisModalState(null);
+                    }}
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-semibold text-[#B91C1C] hover:bg-red-50"
+                  >
+                    Batalkan Antrean QRIS Ini
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        );
+      })()}
 
       {/* Receipt Modal */}
       {receiptTx && (

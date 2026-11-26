@@ -21,6 +21,7 @@ import {
 } from './services/googleSheets';
 import type {
   OpnameReport,
+  PendingQrisOrder,
   SaleTransaction,
   StoreSettings,
   StoreUser,
@@ -95,6 +96,7 @@ export default function App() {
   const [reports, setReports] = useState<OpnameReport[]>(() =>
     hasCloudDatabaseConfigured ? [] : INITIAL_REPORTS
   );
+  const [pendingQrisOrders, setPendingQrisOrders] = useState<PendingQrisOrder[]>([]);
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -1143,6 +1145,13 @@ export default function App() {
               transactions={transactions}
               settings={settings}
               currentUser={resolvedUser}
+              pendingQrisOrders={pendingQrisOrders}
+              onHoldPendingQris={(order) =>
+                setPendingQrisOrders((prev) => [order, ...prev])
+              }
+              onRemovePendingQris={(orderId) =>
+                setPendingQrisOrders((prev) => prev.filter((o) => o.id !== orderId))
+              }
               onCompleteSale={handleCompleteSale}
             />
           )}

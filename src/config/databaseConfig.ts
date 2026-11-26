@@ -14,7 +14,8 @@ import {
  * Jika ingin menanamkan URL secara langsung di repositori, isi konstanta fallback
  * PERMANENT_APPS_SCRIPT_URL dan PERMANENT_DRIVE_FOLDER_NAME di bawah ini.
  */
-const PERMANENT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxd03j9tTYgpAKNnw7tJTAfvuyZSVJZUB2Utdgeta8Jy32eDD3K_oKBn2BWcns7wz-g6Q/exec';
+const PERMANENT_APPS_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbxd03j9tTYgpAKNnw7tJTAfvuyZSVJZUB2Utdgeta8Jy32eDD3K_oKBn2BWcns7wz-g6Q/exec';
 const PERMANENT_DRIVE_FOLDER_NAME = 'Sisstore_Media_Drive';
 
 export interface PermanentDatabaseConfig {
@@ -29,12 +30,16 @@ export function getPermanentDatabaseConfig(
     envOverride ??
     ((import.meta as unknown as { env?: Record<string, unknown> }).env || {});
 
-  const rawUrl = String(
-    envObj.VITE_APPS_SCRIPT_URL ||
-      envObj.VITE_DEFAULT_APPS_SCRIPT_URL ||
-      PERMANENT_APPS_SCRIPT_URL ||
-      ''
-  ).trim();
+  const urlCandidates = [
+    envObj.VITE_APPS_SCRIPT_URL,
+    envObj.VITE_DEFAULT_APPS_SCRIPT_URL,
+    PERMANENT_APPS_SCRIPT_URL,
+  ]
+    .map((val) => String(val ?? '').trim())
+    .filter((val) => val.length > 0);
+
+  const resolvedUrl =
+    urlCandidates.find((url) => isValidAppsScriptUrl(url)) || '';
 
   const rawFolder = String(
     envObj.VITE_DRIVE_FOLDER_NAME ||
@@ -44,7 +49,7 @@ export function getPermanentDatabaseConfig(
   ).trim();
 
   return {
-    appsScriptUrl: isValidAppsScriptUrl(rawUrl) ? rawUrl : '',
+    appsScriptUrl: resolvedUrl,
     driveFolderName: normalizeDriveFolderName(rawFolder),
   };
 }

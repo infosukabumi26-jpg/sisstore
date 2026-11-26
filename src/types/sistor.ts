@@ -84,6 +84,24 @@ export interface SaleTransaction {
   catatan: string;
 }
 
+export interface PendingQrisOrder {
+  id: string;
+  queueCode: string;
+  createdAt: string;
+  waktu: string;
+  items: SaleLineItem[];
+  totalQty: number;
+  totalHpp: number;
+  subtotal: number;
+  diskon: number;
+  totalPenjualan: number;
+  customerPaidAmount: number;
+  referensiPembayaran: string;
+  kasir: string;
+  kasirRole?: UserRole;
+  catatan: string;
+}
+
 export interface PaymentChannelSummary {
   count: number;
   total: number;

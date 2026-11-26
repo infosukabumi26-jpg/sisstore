@@ -14,7 +14,7 @@ import {
  * Jika ingin menanamkan URL secara langsung di repositori, isi konstanta fallback
  * PERMANENT_APPS_SCRIPT_URL dan PERMANENT_DRIVE_FOLDER_NAME di bawah ini.
  */
-const PERMANENT_APPS_SCRIPT_URL = '';
+const PERMANENT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxd03j9tTYgpAKNnw7tJTAfvuyZSVJZUB2Utdgeta8Jy32eDD3K_oKBn2BWcns7wz-g6Q/exec';
 const PERMANENT_DRIVE_FOLDER_NAME = 'Sisstore_Media_Drive';
 
 export interface PermanentDatabaseConfig {
